@@ -386,7 +386,7 @@ chal_pgtbl_cosframe_add(pgtbl_t pt, vaddr_t addr, paddr_t page, u32_t flags, u32
 
 /* This function updates flags of an existing mapping. */
 int
-chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, u32_t flags, u32_t *prevflags)
+chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, word_t flags, word_t *prevflags)
 {
 	/* Not used for now. TODO: add retypetbl_ref / _deref */
 
@@ -409,8 +409,11 @@ chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, u32_t flags, u32_t *prevflags)
 	 */
 	*prevflags = orig_v & PGTBL_FLAG_MASK;
 
+	/* user can only change certain flags, the rest stay the same */
+	flags |= (*prevflags & ~USER_FLAGS_MODIFIABLE);
+
 	/* and update the flags. */
-	return __pgtbl_update_leaf(pte, (void *)(unsigned long)((orig_v & PGTBL_FRAME_MASK) | ((u32_t)flags & PGTBL_FLAG_MASK)),
+	return __pgtbl_update_leaf(pte, (void *)(unsigned long)((orig_v & PGTBL_FRAME_MASK) | (flags & PGTBL_FLAG_MASK)),
 	                           orig_v);
 }
 

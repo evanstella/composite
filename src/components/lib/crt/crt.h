@@ -199,6 +199,7 @@ int crt_thd_alias_in(struct crt_thd *t, struct crt_comp *c, struct crt_thd_resou
 
 void *crt_page_allocn(struct crt_comp *c, u32_t n_pages);
 int crt_page_aliasn_in(void *pages, u32_t n_pages, struct crt_comp *self, struct crt_comp *c_in, vaddr_t *map_addr);
+int crt_page_protect(struct crt_comp *c, vaddr_t page, unsigned long flags);
 
 /**
  * Initialization API to automate the coordination necessary for

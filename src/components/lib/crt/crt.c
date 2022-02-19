@@ -1113,6 +1113,14 @@ crt_page_aliasn_in(void *pages, u32_t n_pages, struct crt_comp *self, struct crt
 	return 0;
 }
 
+int
+crt_page_protect(struct crt_comp *c, vaddr_t page, unsigned long flags)
+{
+	assert(c);
+
+	return cos_mem_protect(cos_compinfo_get(c->comp_res), page, flags);
+}
+
 /*
  * The functions to automate much of the component initialization
  * logic follow.

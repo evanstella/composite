@@ -1438,7 +1438,16 @@ static int __attribute__((noinline)) composite_syscall_slowpath(struct pt_regs *
 			ret = chal_pgtbl_introspect(ch, addr);
 			break;
 		}
-		/* case CAPTBL_OP_MAPPING_MOD: */
+		case CAPTBL_OP_MAPPING_MOD: {
+			vaddr_t addr  = __userregs_get1(regs);
+			word_t  flags = __userregs_get2(regs);
+
+			struct cap_pgtbl *cpt = (struct cap_pgtbl *) captbl_lkup(ct, pt);
+			word_t   temp_flags;
+
+			ret = chal_pgtbl_mapping_mod(cpt->pgtbl, addr, flags, &temp_flags);
+			break;
+		}
 		default:
 			goto err;
 		}

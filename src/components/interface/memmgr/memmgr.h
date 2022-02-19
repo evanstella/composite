@@ -14,6 +14,9 @@
 
 vaddr_t memmgr_heap_page_alloc(void);
 
+int memmgr_page_protect(vaddr_t page, size_t npages, unsigned long flags);
+
+
 vaddr_t memmgr_heap_page_allocn(unsigned long num_pages);
 vaddr_t COS_STUB_DECL(memmgr_heap_page_allocn)(unsigned long num_pages);
 

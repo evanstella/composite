@@ -50,7 +50,7 @@ pgtbl_cosframe_add(pgtbl_t pt, vaddr_t addr, paddr_t page, u32_t flags, u32_t or
 }
 
 int
-pgtbl_mapping_mod(pgtbl_t pt, u32_t addr, u32_t flags, u32_t *prevflags)
+pgtbl_mapping_mod(pgtbl_t pt, word_t addr, word_t flags, word_t *prevflags)
 {
 	return chal_pgtbl_mapping_mod(pt, addr, flags, prevflags);
 }

@@ -447,12 +447,12 @@ chal_pgtbl_cosframe_add(pgtbl_t pt, vaddr_t addr, paddr_t page, u32_t flags, u32
 
 /* This function updates flags of an existing mapping. */
 int
-chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, u32_t flags, u32_t *prevflags)
+chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, word_t flags, word_t *prevflags)
 {
 	/* Not used for now. TODO: add retypetbl_ref / _deref */
 
 	struct ert_intern *pte;
-	u32_t              orig_v, accum = 0;
+	word_t             orig_v, accum = 0;
 
 	assert(pt && prevflags);
 	assert((PGTBL_FLAG_MASK & addr) == 0);
@@ -462,7 +462,7 @@ chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, u32_t flags, u32_t *prevflags)
 	pte = (struct ert_intern *)__chal_pgtbl_lkup(pt, addr);
 	if (__pgtbl_isnull(pte, 0, 0)) return -ENOENT;
 
-	orig_v = (u32_t)(pte->next);
+	orig_v = (word_t)(pte->next);
 	/**
 	 * accum contains flags from pgd as well, so don't use it to
 	 * get prevflags.
@@ -470,7 +470,7 @@ chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, u32_t flags, u32_t *prevflags)
 	*prevflags = orig_v & PGTBL_FLAG_MASK;
 
 	/* and update the flags. */
-	return __pgtbl_update_leaf(pte, (void *)((orig_v & PGTBL_FRAME_MASK) | ((u32_t)flags & PGTBL_FLAG_MASK)),
+	return __pgtbl_update_leaf(pte, (void *)((orig_v & PGTBL_FRAME_MASK) | ((word_t)flags & PGTBL_FLAG_MASK)),
 	                           orig_v);
 }
 

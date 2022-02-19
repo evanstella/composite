@@ -210,6 +210,25 @@ mm_page_allocn(struct cm_comp *c, unsigned long num_pages)
 	return initial;
 }
 
+int
+memmgr_page_protect(vaddr_t page, size_t npages, unsigned long flags)
+{
+	struct cm_comp *c;
+	unsigned long   i;
+
+	if (page % PAGE_SIZE != 0) return -1;
+
+	c = ss_comp_get(cos_inv_token());
+	if (!c) return -1;
+	
+	for (i = 0; i < npages; i++) {
+		if (crt_page_protect(&c->comp, page, flags)) BUG();
+		page += PAGE_SIZE;
+	}
+
+	return 0;
+}
+
 vaddr_t
 memmgr_heap_page_allocn(unsigned long num_pages)
 {

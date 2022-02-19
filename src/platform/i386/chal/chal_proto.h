@@ -3,20 +3,27 @@
 #define CHAL_PROTO_H
 
 /* Page table platform-dependent definitions */
-#define PGTBL_PAGEIDX_SHIFT (12)
-#define PGTBL_FRAME_BITS (32 - PGTBL_PAGEIDX_SHIFT)
-#define PGTBL_FLAG_MASK ((1 << PGTBL_PAGEIDX_SHIFT) - 1)
-#define PGTBL_FRAME_MASK (~PGTBL_FLAG_MASK)
 
 #if defined(__x86_64__)
+#define PGTBL_PAGEIDX_SHIFT (12)
+#define PGTBL_FLAG_MASK (((1ul << PGTBL_PAGEIDX_SHIFT) - 1) | (1ul << 59) | (1ul << 60) | (1ul << 61) | (1ul << 62) | (1ul << 63)) 
 #define PGTBL_ENTRY_ADDR_MASK 0xfffffffffffff000
 #define PGTBL_DEPTH 4
 #define PGTBL_ENTRY_ORDER 9
+/* User only allowed to set MPK bits, R/W & XD*/
+#define USER_FLAGS_MODIFIABLE (0x0ul | (1 << 1) | (1ul << 59) | (1ul << 60) | (1ul << 61) | (1ul << 62) | (1ul << 63) )
 #elif defined(__i386__)
+#define PGTBL_PAGEIDX_SHIFT (12)
+#define PGTBL_FRAME_BITS (32 - PGTBL_PAGEIDX_SHIFT)
+#define PGTBL_FLAG_MASK ((1 << PGTBL_PAGEIDX_SHIFT) - 1)
 #define PGTBL_ENTRY_ADDR_MASK 0xfffff000
 #define PGTBL_DEPTH 2
 #define PGTBL_ENTRY_ORDER 10
+/* User only allowed to set R/W */
+#define USER_FLAGS_MODIFIABLE (1 << 1)
 #endif
+
+#define PGTBL_FRAME_MASK (~PGTBL_FLAG_MASK)
 
 #define PGTBL_ENTRY (1 << PGTBL_ENTRY_ORDER)
 #define SUPER_PAGE_FLAG_MASK  (0x3FFFFF)

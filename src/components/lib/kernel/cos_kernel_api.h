@@ -167,6 +167,7 @@ int     cos_mem_alias_atn(struct cos_compinfo *dstci, vaddr_t dst, struct cos_co
 vaddr_t cos_mem_move(struct cos_compinfo *dstci, struct cos_compinfo *srcci, vaddr_t src);
 int     cos_mem_move_at(struct cos_compinfo *dstci, vaddr_t dst, struct cos_compinfo *srcci, vaddr_t src);
 int     cos_mem_remove(pgtblcap_t pt, vaddr_t addr);
+int     cos_mem_protect(struct cos_compinfo *ci, vaddr_t page, unsigned long flags);
 
 /* Tcap operations */
 tcap_t cos_tcap_alloc(struct cos_compinfo *ci);

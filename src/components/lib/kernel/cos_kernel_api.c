@@ -1115,6 +1115,15 @@ cos_mem_alias_atn(struct cos_compinfo *dstci, vaddr_t dst, struct cos_compinfo *
 }
 
 int
+cos_mem_protect(struct cos_compinfo *ci, vaddr_t page, unsigned long flags)
+{
+	assert(ci);
+	assert(page % PAGE_SIZE == 0);
+
+	return call_cap_op(ci->pgtbl_cap, CAPTBL_OP_MAPPING_MOD, page, flags, 0, 0);
+}
+
+int
 cos_mem_remove(pgtblcap_t pt, vaddr_t addr)
 {
 	assert(0);
