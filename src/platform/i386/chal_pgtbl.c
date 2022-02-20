@@ -412,6 +412,8 @@ chal_pgtbl_mapping_mod(pgtbl_t pt, vaddr_t addr, word_t flags, word_t *prevflags
 	/* user can only change certain flags, the rest stay the same */
 	flags |= (*prevflags & ~USER_FLAGS_MODIFIABLE);
 
+	/* TODO: flush TLB */
+
 	/* and update the flags. */
 	return __pgtbl_update_leaf(pte, (void *)(unsigned long)((orig_v & PGTBL_FRAME_MASK) | (flags & PGTBL_FLAG_MASK)),
 	                           orig_v);
