@@ -230,6 +230,61 @@ memmgr_heap_page_allocn(unsigned long num_pages)
 	return memmgr_heap_page_allocn_aligned(num_pages, PAGE_SIZE);
 }
 
+/* FIXME: Temporary for MPK testing; this will be offloaded to namespace management */
+static struct mm_page *
+mm_page_alloc_protected(struct cm_comp *c, u8_t pkey)
+{
+	struct mm_mapping *m;
+	struct mm_page    *ret = NULL, *p;
+	int    i;
+
+	p = ss_page_alloc();
+	if (!p) return NULL;
+
+	m = &p->mappings[0];
+	if (ss_state_alloc(&m->comp)) BUG();
+
+	/* Allocate page, map page */
+	p->page = crt_page_allocn(&cm_self()->comp, 1);
+	if (!p->page) ERR_THROW(NULL, free_p);
+
+	m->addr = cos_mem_aliasn_aligned (
+		cos_compinfo_get(c->comp.comp_res), 
+		cos_compinfo_get(cm_self()->comp.comp_res), 
+		(vaddr_t)(p->page), 
+		PAGE_SIZE, 
+		PAGE_SIZE, 
+		COS_PAGE_READABLE | COS_PAGE_WRITABLE | ( ((u64_t)pkey) << 59)
+	);
+	
+	//if (crt_page_aliasn_aligned_in(p->page, align, 1, &cm_self()->comp, &c->comp, &m->addr)) BUG();
+
+	ss_state_activate_with(&m->comp, (word_t)c);
+	ss_page_activate(p);
+	ret = p;
+done:
+	return ret;
+free_p:
+	ss_page_free(p);
+	goto done;
+}
+
+/* FIXME: Temporary for MPK testing; this will be offloaded to namespace management */
+vaddr_t
+memmgr_heap_page_alloc_protected(u8_t pkey)
+{
+	struct cm_comp *c;
+	struct mm_page *p;
+
+	c = ss_comp_get(cos_inv_token());
+	if (!c) return 0;
+	
+	p = mm_page_alloc_protected(c, pkey);
+	if (!p) return 0;
+
+	return (vaddr_t)p->mappings[0].addr;
+}
+
 cbuf_t
 memmgr_shared_page_allocn_aligned(unsigned long num_pages, unsigned long align, vaddr_t *pgaddr)
 {
