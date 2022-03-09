@@ -256,6 +256,7 @@ mm_page_alloc_protected(struct cm_comp *c, u8_t pkey)
 		PAGE_SIZE, 
 		COS_PAGE_READABLE | COS_PAGE_WRITABLE | ( ((u64_t)pkey) << 59)
 	);
+	if (!m->addr) BUG();
 	
 	//if (crt_page_aliasn_aligned_in(p->page, align, 1, &cm_self()->comp, &c->comp, &m->addr)) BUG();
 
@@ -281,7 +282,6 @@ memmgr_heap_page_alloc_protected(u8_t pkey)
 	
 	p = mm_page_alloc_protected(c, pkey);
 	if (!p) return 0;
-
 	return (vaddr_t)p->mappings[0].addr;
 }
 

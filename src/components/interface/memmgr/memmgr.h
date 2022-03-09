@@ -36,6 +36,8 @@ unsigned long COS_STUB_DECL(memmgr_shared_page_map_aligned)(cbuf_t id, unsigned 
 
 /* FIXME: Temporary for MPK testing; this will be offloaded to namespace management */
 vaddr_t memmgr_heap_page_alloc_protected(u8_t pkey);
+vaddr_t COS_STUB_DECL(memmgr_heap_page_alloc_protected)(u8_t pkey);
+
 
 
 
