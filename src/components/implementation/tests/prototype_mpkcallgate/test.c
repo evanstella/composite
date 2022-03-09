@@ -15,8 +15,8 @@ u32_t  pkru_client_key = 0xffffffcc; /* only access pages marked pkey 2 (and 0)*
 u32_t  pkru_server_key = 0xffffff3c; /* only access pages marked pkey 3 (and 0)*/
 u32_t  pkru_ulk_key    = 0x00000000; /* access everything! */
 
-const u64_t CLIENT_AUTH_TOK = 0xfffffffffffffff0;
-const u64_t SERVER_AUTH_TOK = 0xfffffffffffffff1;
+static u64_t CLIENT_AUTH_TOK = 0xfffffffffffffff0;
+static u64_t SERVER_AUTH_TOK = 0xfffffffffffffff1;
 
 struct ulk_invstack *invstack;
 
@@ -46,18 +46,16 @@ ulk_invoke_server(void)
 {
 	/* real callgate would save rest of thread state here */
 	asm volatile (
-		"movq    $CLIENT_AUTH_TOK, %%rbx\n\t"
-		"movq    (%%rbx), %%r15\n\t"
+		"movq    $0xfffffffffffffff0, %%r15\n\t"
 
 		/* switch to ulk protection domain */
-		"movq    $pkru_ulk_key, %%rbx\n\t"
-		"movq    (%%rbx), %%rax\n\t"
+		"movl    $0x00000000, %%eax\n\t"
 		"xor     %%rcx, %%rcx\n\t"
 		"xor     %%rdx, %%rdx\n\t"
 		"wrpkru  \n\t"
 
 		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     (%%rbx), %%rax\n\t"       
+		"cmp     $0x00000000, %%eax\n\t"       
 		"jne     1f\n\t"
 
 		/* push invocation record */
@@ -74,22 +72,20 @@ ulk_invoke_server(void)
 		"movq    %%rbx, (%%rdx)\n\t"              /* store updated tos */
 
 		/* switch to server protection domain */
-		"movq    $pkru_server_key, %%rbx\n\t"
-		"movq    (%%rbx), %%rax\n\t"
+		"movl    $0xffffff3c, %%eax\n\t"
 		"xor     %%rcx, %%rcx\n\t"
 		"xor     %%rdx, %%rdx\n\t"
 		"wrpkru  \n\t"   
 
 		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     (%%rbx), %%rax\n\t"       
+		"cmp     $0xffffff3c, %%eax\n\t"       
 		"jne     1f\n\t"       
 
 		/* check client token */
-		"movq    $CLIENT_AUTH_TOK, %%rbx\n\t"
-		"cmp     (%%rbx), %%r15\n\t"
+		"cmp     $0xfffffffffffffff0, %%r15\n\t"
 		"jne     1f\n\t"       
 
-		/* TODO switch to server execution stack */
+		/* switch to server execution stack */
 		"movq    $server_stk, %%rax\n\t"
 		"movq    (%%rax), %%rsp\n\t"
 
@@ -97,18 +93,16 @@ ulk_invoke_server(void)
 		"call    server_function\n\t"
 
 		/* save server authentication token */
-		"movq    $CLIENT_AUTH_TOK, %%rbx\n\t"
-		"movq    (%%rbx), %%r15\n\t"
+		"movq    $0xfffffffffffffff1, %%r15\n\t"
 
 		/* switch back to ulk protection domain */
-		"movq    $pkru_ulk_key, %%rbx\n\t"
-		"movq    (%%rbx), %%rax\n\t"
+		"movl    $0x00000000, %%eax\n\t"
 		"xor     %%rcx, %%rcx\n\t"
 		"xor     %%rdx, %%rdx\n\t"
 		"wrpkru  \n\t"
 
 		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     (%%rbx), %%rax\n\t"       
+		"cmp     $0x00000000, %%eax\n\t"       
 		"jne     1f\n\t"
 
 		/* pop the invocation record */	
@@ -122,19 +116,17 @@ ulk_invoke_server(void)
 		"movq    (%%rcx), %%rsp\n\t"              /* restore sp */
 		
 		/* switch back to client protection domain */
-		"movq    $pkru_client_key, %%rbx\n\t"
-		"movq    (%%rbx), %%rax\n\t"
+		"movl    $0xffffffcc, %%eax\n\t"
 		"xor     %%rcx, %%rcx\n\t"
 		"xor     %%rdx, %%rdx\n\t"
 		"wrpkru  \n\t"  
 
 		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     (%%rbx), %%rax\n\t"       
+		"cmp     $0xffffffcc, %%eax\n\t"       
 		"jne     1f\n\t"                         /* this is kind of pointless, what to do intead? */ 
 
 		/* check server token */
-		"movq    $SERVER_AUTH_TOK, %%rbx\n\t"
-		"cmp     (%%rbx), %%r15\n\t"
+		"cmp    $0xfffffffffffffff1, %%r15\n\t"
 		"jne     1f\n\t"                         /* this is kind of pointless, what to do intead? */ 
 
 		/* exit to client*/
