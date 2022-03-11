@@ -70,7 +70,7 @@ asm volatile (
     "cmp     $0x{ULK_PKRU}, %%eax\n\t"           | is a better way to check we jmped in here
     "jne     1f\n\t"                           --+
 
-    /* pop the invocation record */	           --+
+    /* pop the invocation record */            --+
     "movq    $invstack, %%rbx\n\t"               |
     "movq    (%%rbx), %%rdx\n\t"                 | Unless I'm missing something, all the previous
     "movq    (%%rdx), %%rax\n\t"                 | checks would ensure we dont jmp in here with
