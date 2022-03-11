@@ -46,6 +46,7 @@ ulk_invoke_server(void)
 {
 	/* real callgate would save rest of thread state here */
 	asm volatile (
+		/* load client auth token */
 		"movq    $0xfffffffffffffff0, %%r15\n\t"
 
 		/* switch to ulk protection domain */
