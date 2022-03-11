@@ -1,6 +1,6 @@
 # MPK Callgate Notes
 
-```c
+```
 asm volatile (
     /* load client auth token */
     "movq    $0x{CLIENT_TOKEN}, %%r15\n\t"     --+ 
