@@ -90,15 +90,15 @@ asm volatile (
     /* verify the key loaded was correct */
     "cmp     $0x{CLIENT_PKRU}, %%eax\n\t"      --+
     "jne     1f\n\t"                             |
-                                                 | Need to figure out what to do here instead, 
-    /* check server token */                     | otherwise abuser could jmp here to get into
-    "cmp    $0x{SERVER_TOKEN}, %%r15\n\t"        | client?
+                                                 | Need to figure out what to do here instead 
+    /* check server token */                     | 
+    "cmp    $0x{SERVER_TOKEN}, %%r15\n\t"        | 
     "jne     1f\n\t"                             |
                                                --+
 
-    /* exit to client*/
-    "1:\n\t"
-    :
+    /* exit to client*/                        
+    "1:\n\t"                                    
+    :                                          
     :
     : "memory"
 
