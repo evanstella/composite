@@ -50,6 +50,7 @@
 #include <barrier.h>
 #include <ps.h>
 #include <initargs.h>
+#include <jitutils.h>
 
 #include <crt.h>
 
@@ -468,6 +469,20 @@ crt_comp_alias_in(struct crt_comp *c, struct crt_comp *c_in, struct crt_comp_res
 	return 0;
 }
 
+static void
+crt_jit_callgate(vaddr_t fn_addr)
+{	
+	u64_t client_tok, server_tok;
+	u64_t  placeholder = 0xdeadbeefdeadbeef;
+
+	/* client_tok = crypt_rand64(); */
+	/* server_tok = crypt_rand64(); */
+	client_tok = 0x123456789abcdef;
+	server_tok = 0xfefefefefefefef;
+
+	jitutils_replace((u8_t *)fn_addr, (u8_t *)&placeholder, (u8_t *)&server_tok, sizeof(word_t), 100);
+}
+
 int
 crt_sinv_create(struct crt_sinv *sinv, char *name, struct crt_comp *server, struct crt_comp *client,
 		vaddr_t c_fn_addr, vaddr_t c_ucap_addr, vaddr_t s_fn_addr)
@@ -497,6 +512,9 @@ crt_sinv_create(struct crt_sinv *sinv, char *name, struct crt_comp *server, stru
 		.c_ucap_addr = c_ucap_addr,
 		.s_fn_addr   = s_fn_addr
 	};
+
+	vaddr_t s_fn_off = sinv->s_fn_addr - sinv->server->ro_addr;
+	if (sinv->server->id == 4) crt_jit_callgate(sinv->server->mem + s_fn_off);
 
 	sinv->sinv_cap = cos_sinv_alloc(cli, srv->comp_cap, sinv->s_fn_addr, client->id);
 	assert(sinv->sinv_cap);

@@ -24,6 +24,7 @@
 .align 16 ;							\
 __cosrt_s_##name:						\
 	COS_ASM_GET_STACK_INVTOKEN				\
+	movq $0xdeadbeefdeadbeef, %r15;    			\
 	mov %r12, %rcx;						\
 	xor %rbp, %rbp;						\
 	mov %rdi, %rax;						\
@@ -36,6 +37,7 @@ __cosrt_s_##name:						\
 	mov %rax, %r8;						\
 	mov $RET_CAP, %rax;					\
 	COS_ASM_RET_STACK					\
+	cmpq %rbx, %r15;    			\
 	syscall;
 
 /*
