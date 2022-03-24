@@ -23,7 +23,7 @@ int jitutils_replace(u8_t *src, u8_t *orig, u8_t *replace, size_t len, size_t ma
 	int i, pos;
 
 	pos = jitutils_search(src, orig, len, max);
-	if (pos == -1) return -1;
+	if (pos == -1) return 0;
 
 	for (i = 0; i < len; i++) {
 		src[pos + i] = replace[i];

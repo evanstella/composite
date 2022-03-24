@@ -14,6 +14,7 @@
 #include <cos_defkernel_api.h>
 #include <crt.h>
 #include <static_slab.h>
+#include <jitutils.h>
 
 #include <init.h>
 #include <addr.h>
@@ -85,6 +86,42 @@ boot_comp_set_idoffset(int off)
 	boot_id_offset = off;
 }
 
+static void 
+booter_jit_callgate(u8_t *server_fn)
+{
+	u64_t client_tok       = 0x0123456789abcdef;
+	u64_t server_tok       = 0xfefefefefefefefe;
+	u64_t tok_placeholder  = 0xdeadbeefdeadbeef;
+	u32_t pkru_placeholder = 0xfffffffe;
+	u32_t pkru_client_key  = 0xffffffcc; 
+	u32_t pkru_server_key  = 0xffffff3c;
+
+	/* replace the initial client token load */
+    if (!jitutils_replace(server_fn, (u8_t *)&tok_placeholder, (u8_t *)&client_tok, sizeof(u64_t), 256)) BUG();
+
+	/* replace the first client token check */
+    if (!jitutils_replace(server_fn, (u8_t *)&tok_placeholder, (u8_t *)&client_tok, sizeof(u64_t), 256)) BUG();
+	
+	/* replace the second client token check */
+    if (!jitutils_replace(server_fn, (u8_t *)&tok_placeholder, (u8_t *)&client_tok, sizeof(u64_t), 256)) BUG();
+
+	/* replace the initial server token load */
+    if (!jitutils_replace(server_fn, (u8_t *)&tok_placeholder, (u8_t *)&server_tok, sizeof(u64_t), 256)) BUG();
+
+	/* replace the first server token check */
+    if (!jitutils_replace(server_fn, (u8_t *)&tok_placeholder, (u8_t *)&server_tok, sizeof(u64_t), 256)) BUG();
+	
+	/* replace the second server token check */
+    if (!jitutils_replace(server_fn, (u8_t *)&tok_placeholder, (u8_t *)&server_tok, sizeof(u64_t), 256)) BUG();
+
+	/* replace server pkru switch */
+    if (!jitutils_replace(server_fn, (u8_t *)&pkru_placeholder, (u8_t *)&pkru_server_key, sizeof(u32_t), 256)) BUG();
+	
+	/* replace client pkru switch */
+    if (!jitutils_replace(server_fn, (u8_t *)&pkru_placeholder, (u8_t *)&pkru_client_key, sizeof(u32_t), 256)) BUG();
+	
+}
+
 static void
 comps_init(void)
 {
@@ -149,6 +186,14 @@ comps_init(void)
 			}	
 		}
 		assert(comp->refcnt != 0);
+
+		/* FIXME: super hacky way to test callgate jitting */
+		if (id == 4) {
+			/* address of callgate in testing component VAS */
+			vaddr_t server_fn_offset = 0x4002d0 - comp->ro_addr;
+			u8_t *server_fn = (u8_t *)(comp->mem + server_fn_offset);
+			booter_jit_callgate(server_fn);
+		}
 	}
 
 	ret = args_get_entry("execute", &comps);
@@ -290,6 +335,7 @@ comps_init(void)
 		cli->sinvs[cli->n_sinvs] = *sinv;
 		cli->n_sinvs++;
 	#endif /* ENABLE_CHKPT */
+
 	}
 	
 	/*

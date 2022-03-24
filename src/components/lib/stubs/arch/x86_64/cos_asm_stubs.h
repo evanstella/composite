@@ -24,7 +24,6 @@
 .align 16 ;							\
 __cosrt_s_##name:						\
 	COS_ASM_GET_STACK_INVTOKEN				\
-	movq $0xdeadbeefdeadbeef, %r15;    			\
 	mov %r12, %rcx;						\
 	xor %rbp, %rbp;						\
 	mov %rdi, %rax;						\
@@ -127,6 +126,21 @@ __cosrt_ucap_##name:				\
 .text /* start out in the text segment, and always return there */
 
 #define cos_asm_stub_indirect(name) cos_asm_stub(name)
+
+#define cos_asm_stub_mpk(name)			\
+.text;						\
+.weak name;					\
+.globl __cosrt_extern_##name;			\
+.type  name, @function;				\
+.type  __cosrt_extern_##name, @function;	\
+.align 8 ;					\
+name:						\
+__cosrt_extern_##name:				\
+	/* FIXME: ucaps; this is for testing */ \
+	mov $__cosrt_mpkcallgate_##name, &rax ; \
+	jmp *rax ;
+
+
 #endif
 
 .text

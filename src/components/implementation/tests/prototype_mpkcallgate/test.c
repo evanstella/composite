@@ -1,6 +1,7 @@
 #include <cos_types.h>
 #include <ps.h>
 #include <memmgr.h>
+#include <jitutils.h>
 
 
 u8_t pkey_ulk    = 1;
@@ -15,25 +16,44 @@ u32_t  pkru_client_key = 0xffffffcc; /* only access pages marked pkey 2 (and 0)*
 u32_t  pkru_server_key = 0xffffff3c; /* only access pages marked pkey 3 (and 0)*/
 u32_t  pkru_ulk_key    = 0x00000000; /* access everything! */
 
-static u64_t CLIENT_AUTH_TOK = 0xfffffffffffffff0;
-static u64_t SERVER_AUTH_TOK = 0xfffffffffffffff1;
+// static u64_t CLIENT_AUTH_TOK = 0xfffffffffffffff0;
+// static u64_t SERVER_AUTH_TOK = 0xfffffffffffffff1;
 
-struct ulk_invstack *invstack;
+/* --- USERLEVEL KERNEL --- */
+
+struct ulk_thd_invstacks *thd_invstacks;
 
 struct ulk_invrecord {
 	u64_t sp;
 	u64_t ip;
-	/* ... other rstuff? */
+	/* ... other stuff? */
 };
 
 struct ulk_invstack {
 	u64_t top;
+	u64_t pad;
 	struct ulk_invrecord s[7];
 };
 
+struct ulk_thd_invstacks {
+	struct ulk_invstack thd_stacks[8];
+};
+
+/* --- SERVER --- */
+
+/** 
+ * using a real callgate this would be defined 
+ * on the server-side as server_fn 
+ */
 void
-server_function(void)
+srv_server_fn(void)
 {
+	unsigned long r15;
+
+	/* check that jitting happened, client token should be in r15 */
+	asm volatile("movq %%r15, %0": "=m"(r15));
+	assert(r15 == 0x0123456789abcdef);
+
 	server_mem[666] = 0x11;
 	printc("Server does thing!\n");
 
@@ -41,169 +61,70 @@ server_function(void)
 }
 
 
-static void
-ulk_invoke_server(void)
-{
-	/* real callgate would save rest of thread state here */
-	asm volatile (
-		/* load client auth token */
-		"movq    $0xfffffffffffffff0, %%r15\n\t"
+/* --- CLIENT --- */
 
-		/* switch to ulk protection domain */
-		"movl    $0x00000000, %%eax\n\t"
-		"xor     %%rcx, %%rcx\n\t"
-		"xor     %%rdx, %%rdx\n\t"
-		"wrpkru  \n\t"
-
-		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     $0x00000000, %%eax\n\t"       
-		"jne     1f\n\t"
-
-		/* push invocation record */
-		"movq    $invstack, %%rbx\n\t"
-		"movq    (%%rbx), %%rdx\n\t"              /* get invocation stack */
-		"movq    (%%rdx), %%rax\n\t"              /* tos */
-		"movq    %%rax, %%rbx\n\t"                /* save tos to increment */
-		"shl     $0x4, %%rax\n\t"                 /* index = tos*sizeof(record) = tos*16 */
-		"lea     0x8(%%rdx, %%rax, 1), %%rcx\n\t" /* get top record */
-		"movq    %%rsp, (%%rcx)\n\t"              /* store sp */
-		"add     $0x8, %%rcx\n\t"
-		"movq    $1f, (%%rcx)\n\t"                /* store ip we go to when we are done (we might not actually need this?)*/
-		"add     $0x1, %%rbx\n\t"                 /* increment tos */
-		"movq    %%rbx, (%%rdx)\n\t"              /* store updated tos */
-
-		/* switch to server protection domain */
-		"movl    $0xffffff3c, %%eax\n\t"
-		"xor     %%rcx, %%rcx\n\t"
-		"xor     %%rdx, %%rdx\n\t"
-		"wrpkru  \n\t"   
-
-		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     $0xffffff3c, %%eax\n\t"       
-		"jne     1f\n\t"       
-
-		/* check client token */
-		"cmp     $0xfffffffffffffff0, %%r15\n\t"
-		"jne     1f\n\t"       
-
-		/* switch to server execution stack */
-		"movq    $server_stk, %%rax\n\t"
-		"movq    (%%rax), %%rsp\n\t"
-
-		/* now we have a stack, execute in server */
-		"call    server_function\n\t"
-
-		/* save server authentication token */
-		"movq    $0xfffffffffffffff1, %%r15\n\t"
-
-		/* switch back to ulk protection domain */
-		"movl    $0x00000000, %%eax\n\t"
-		"xor     %%rcx, %%rcx\n\t"
-		"xor     %%rdx, %%rdx\n\t"
-		"wrpkru  \n\t"
-
-		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     $0x00000000, %%eax\n\t"       
-		"jne     1f\n\t"
-
-		/* pop the invocation record */	
-		"movq    $invstack, %%rbx\n\t"
-		"movq    (%%rbx), %%rdx\n\t"              /* get invocation stack */
-		"movq    (%%rdx), %%rax\n\t"              /* tos */
-		"sub     $0x1, %%rax\n\t"                 /* decrement tos */
-		"movq    %%rax, (%%rdx)\n\t"              /* store new tos */
-		"shl     $0x4, %%rax\n\t"                 /* index = tos*sizeof(record) = tos*16 */
-		"lea     0x8(%%rdx, %%rax, 1), %%rcx\n\t" /* get top record */
-		"movq    (%%rcx), %%rsp\n\t"              /* restore sp */
-		
-		/* switch back to client protection domain */
-		"movl    $0xffffffcc, %%eax\n\t"
-		"xor     %%rcx, %%rcx\n\t"
-		"xor     %%rdx, %%rdx\n\t"
-		"wrpkru  \n\t"  
-
-		/* verify the key loaded was correct (might have to be rdpkru) */
-		"cmp     $0xffffffcc, %%eax\n\t"       
-		"jne     1f\n\t"                         /* this is kind of pointless, what to do intead? */ 
-
-		/* check server token */
-		"cmp    $0xfffffffffffffff1, %%r15\n\t"
-		"jne     1f\n\t"                         /* this is kind of pointless, what to do intead? */ 
-
-		/* exit to client*/
-		"1:\n\t"
-		:
-		:
-		: "memory"
-	
-	);
-
-	printc("Return from Server\n");
-
-}
+extern void server_fn(void);
 
 void
 client_main(void)
 {
-	/* 
-	 * client does client things...
-	 * ... 
-	 * ...
-	 * ... 
-	 */
+	unsigned long r15;
+
+	/* check we can write to our memory */
 	client_mem[42] = 0x42;
 	// server_mem[0] = 0x99; // <-- faults
-	/* 
-	 * client does client things...
-	 * ... 
-	 * ...
-	 * ... 
-	 */
 
-	/* ask server to do something */
-	ulk_invoke_server();
+	/* invoke our (fake) interface function */
+	server_fn();
+
+	/* check jit again; server token should be in r15 */
+	asm volatile("movq %%r15, %0": "=m"(r15));
+	assert(r15 == 0xfefefefefefefefe);
+
 	printc("Back in client\n");
 
+	/* check we can write to our memory */
 	client_mem[44] = 0x44;
-	
 }
 
-inline void
-ulk_wrpkru(u32_t pkru)
+
+/* --- TESTING CODE --- */
+
+static inline void
+wrpkru(u32_t pkru)
 {
-	asm volatile (
-		"xor     %%rcx, %%rcx\n\t"
-		"xor     %%rdx, %%rdx\n\t"
-		"mov     %0,    %%eax\n\t"
-		"wrpkru  \n\t"
-		: : "r"(pkru)
-	);
+	asm volatile(
+		"xor %%rcx, %%rcx\n\t"
+		"xor %%rdx, %%rdx\n\t"
+		"wrpkru\n\t"
+            : : "a" (pkru));
 }
+
+/* This would normally be performed by the booter */
 
 int
 main(void)
 {
-	/* setup memory regions */
+	wrpkru(pkru_ulk_key);
 
+	/* setup memory regions */
 	client_mem = (u8_t *)memmgr_heap_page_alloc_protected(pkey_client);
 	server_mem = (u8_t *)memmgr_heap_page_alloc_protected(pkey_server);
 
 	server_stk = (u8_t *)memmgr_heap_page_alloc_protected(pkey_server);
 
-	invstack = (struct ulk_invstack *)memmgr_heap_page_alloc_protected(pkey_ulk);
-	invstack->top = 0;
+	thd_invstacks = (struct ulk_thd_invstacks *)memmgr_heap_page_alloc_protected(pkey_ulk);
 
 	/* enter into client */
-	ulk_wrpkru(pkru_client_key);
+	wrpkru(pkru_client_key);
 	client_main();
 
 	/* ensure all the above writes actually happened (these numbers are arbitrary)*/
-	ulk_wrpkru(pkru_ulk_key);
+	wrpkru(pkru_ulk_key);
 
 	assert(client_mem[42]  == 0x42);
 	assert(client_mem[44]  == 0x44);
 	assert(server_mem[666] == 0x11);
-
 
 	return 0;
 }

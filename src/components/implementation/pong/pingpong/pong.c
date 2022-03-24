@@ -61,12 +61,6 @@ pong_call(void)
 int
 pong_ret(void)
 {
-	unsigned long r15;
-
-	asm volatile("movq %%r15, %0": "=m"(r15));
-
-	printc("Value of r15: %lx\n", r15);
-
 	return 42;
 }
 
