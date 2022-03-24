@@ -100,7 +100,6 @@ wrpkru(u32_t pkru)
             : : "a" (pkru));
 }
 
-/* This would normally be performed by the booter */
 
 int
 main(void)
