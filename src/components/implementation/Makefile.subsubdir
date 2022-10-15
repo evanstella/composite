@@ -15,10 +15,21 @@ COMPLIST=$(wordlist $(shell echo $(COMPLEN)-1 | bc), $(COMPLEN), $(COMPPATH))
 COMPNAME=$(shell echo $(strip $(COMPLIST)) | sed "s/ /./")
 COMPOBJ =$(COMPNAME).o
 
+RUST_TARGET_PATH=$(shell pwd)
+RUSTFLAGS=--emit=obj
+
+export RUST_TARGET_PATH
+export RUSTFLAGS
+
 C_OBJS  =$(patsubst %.c,%.o,$(wildcard *.c))
 CXX_OBJS=$(patsubst %.cc,%.o,$(wildcard *.cc))
 ASM_OBJS=$(patsubst %.S,%.o,$(wildcard *.S))
-R_OBJS  =$(wildcard cargo-*.o)
+
+# Are we using cargo?
+ifeq ($(shell test -f Cargo.toml && echo '1'), 1)
+	R_OBJS = cargo-$(COMPNAME).o
+endif
+
 OBJS    =$(CXX_OBJS) $(C_OBJS) $(ASM_OBJS) $(OBJLIBS) $(R_OBJS)
 # NOTE: assembly files don't have dependencies generated for them
 SOURCE_DEPENDENCIES=$(C_OBJS:%.o=%.d) $(CXX_OBJS:%.o=%.d)
@@ -110,6 +121,12 @@ component: clean comp_header $(COMPOBJ)
 %.o:%.S
 	$(info |     [AS]   Compiling assembly file $^ into $@)
 	@$(AS) $(ASFLAGS) $(INCLUDE) -c -o $@ $^
+
+cargo-$(COMPNAME).o:
+	cargo clean
+	cargo build -Z build-std=core --target test.json
+	ld -r -o cargo-$(COMPNAME).o target/test/debug/deps/*.o
+	
 
 # see the make manual: create the .d dependencies from include
 # statements.
