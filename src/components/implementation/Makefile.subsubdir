@@ -124,8 +124,8 @@ component: clean comp_header $(COMPOBJ)
 
 cargo-$(COMPNAME).o:
 	cargo clean
-	cargo build -Z build-std=core --target test.json
-	ld -r -o cargo-$(COMPNAME).o target/test/debug/deps/*.o
+	cargo build -Z build-std --target x86_64-unknown-composite-musl.json
+	ld -r -o cargo-$(COMPNAME).o target/x86_64-unknown-composite-musl/debug/deps/*.o
 	
 
 # see the make manual: create the .d dependencies from include
