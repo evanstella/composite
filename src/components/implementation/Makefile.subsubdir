@@ -124,7 +124,8 @@ component: clean comp_header $(COMPOBJ)
 
 cargo-$(COMPNAME).o:
 	cargo clean
-	cargo build -Z build-std --target x86_64-unknown-composite-musl.json
+	cargo build -Z build-std=std,panic_abort --target x86_64-unknown-composite-musl.json
+	rm target/x86_64-unknown-composite-musl/debug/deps/panic_unwind*.o
 	ld -r -o cargo-$(COMPNAME).o target/x86_64-unknown-composite-musl/debug/deps/*.o
 	
 
