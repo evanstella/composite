@@ -1,5 +1,5 @@
 #![no_main]                  /* we can't rely on the stdlib's runtime assumptions */
-#![feature(lang_items)]      /* we'll move this eh_personality stuff out of here*/
+#![feature(lang_items)]      /* we'll move this eh_personality stuff into it's own crate later */
 #![feature(restricted_std)]  /* This is poorly documented. Rustc doesnt like us using unstable library features without denoting it*/
 
 use std::os::raw::c_char;
