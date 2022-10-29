@@ -1,10 +1,12 @@
 #include <cos_types.h>
 
-/* printc is defined in this header file so rustc can not see it */
-#include <llprint.h>
-void print_str(char *str, ...) {printc(str);}
-
-
+/**
+ * These will likely go into their own rust runtime library. rustc creates these shims 
+ * at LINK time so that it can optionally hook in functions for externally defined allocators 
+ * (like jemalloc) that are defined with #[global_allocator]. We however do not use rustc 
+ * for linking so we have to define default ones ourselves... The symbols are alrady defined,
+ * we just need to hook them together.
+ */
 
 extern u8_t *__rdl_alloc(u64_t, u64_t);
 extern void  __rdl_dealloc(u8_t *, u64_t, u64_t);
