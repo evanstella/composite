@@ -25,6 +25,6 @@ constructor = "booter"
 [[components]]
 name = "rust_hello"
 img  = "tests.rust_hello"
-deps = [{srv = "sched", interface = "init"}, {srv = "capmgr", interface = "contigmem"}, {srv = "capmgr", interface = "capmgr_create"}]
+deps = [{srv = "sched", interface = "init"}, {srv = "capmgr", interface = "contigmem"}, {srv = "capmgr", interface = "capmgr_create"},{srv = "sched", interface = "sched"}]
 constructor = "booter"
 

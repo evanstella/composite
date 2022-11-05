@@ -91,6 +91,7 @@ cos_nanosleep(const struct timespec *req, struct timespec *rem)
 long
 cos_set_tid_address(int *tidptr)
 {
+	printc("yikes\n");
 	/* Just do nothing for now and hope that works */
 	return 0;
 }
@@ -126,6 +127,7 @@ cos_set_thread_area(void* data)
 int
 cos_clone(int (*func)(void *), void *stack, int flags, void *arg, pid_t *ptid, void *tls, pid_t *ctid)
 {
+	printc("AHHHH\n");
 	if (!func) {
 		errno = EINVAL;
 		return -1;

@@ -16,7 +16,7 @@ COMPNAME=$(shell echo $(strip $(COMPLIST)) | sed "s/ /./")
 COMPOBJ =$(COMPNAME).o
 
 RUST_TARGET_PATH=$(shell pwd)
-RUSTFLAGS=--emit=obj
+RUSTFLAGS= --emit=obj
 
 export RUST_TARGET_PATH
 export RUSTFLAGS
@@ -124,9 +124,9 @@ component: clean comp_header $(COMPOBJ)
 
 cargo-$(COMPNAME).o:
 	cargo clean
-	cargo build -Z build-std=std,panic_abort --target x86_64-unknown-composite-musl.json
-	rm target/x86_64-unknown-composite-musl/debug/deps/panic_unwind*.o
-	ld -r -o cargo-$(COMPNAME).o target/x86_64-unknown-composite-musl/debug/deps/*.o
+	cargo build -Z build-std --target ./x86_64-unknown-linux-musl.json --release
+	rm target/x86_64-unknown-linux-musl/release/deps/panic_abort*.o
+	ld -r -o cargo-$(COMPNAME).o target/x86_64-unknown-linux-musl/release/deps/*.o
 	
 
 # see the make manual: create the .d dependencies from include
