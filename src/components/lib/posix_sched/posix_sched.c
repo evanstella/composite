@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <syscall.h>
 #include <time.h>
+#include <limits.h>
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -15,18 +16,59 @@
 #include <posix.h>
 #include <ps_list.h>
 #include <sched.h>
+#include <pthread.h>
+
+struct pthread {
+	/* Part 1 -- these fields may be external or
+	 * internal (accessed via asm) ABI. Do not change. */
+	struct pthread *self;
+	vaddr_t *dtv;
+	struct pthread *prev, *next; /* non-ABI */
+	vaddr_t sysinfo;
+	vaddr_t canary, canary2;
+
+	/* Part 2 -- implementation details, non-ABI. */
+	int tid;
+	int errno_val;
+	volatile int detach_state;
+	volatile int cancel;
+	volatile unsigned char canceldisable, cancelasync;
+	unsigned char tsd_used:1;
+	unsigned char dlerror_flag:1;
+	unsigned char *map_base;
+	size_t map_size;
+	void *stack;
+	size_t stack_size;
+	size_t guard_size;
+	void *result;
+	struct __ptcb *cancelbuf;
+	void **tsd;
+	struct {
+		volatile void *volatile head;
+		long off;
+		volatile void *volatile pending;
+	} robust_list;
+	volatile int timer_id;
+	locale_t locale;
+	volatile int killlock[1];
+	char *dlerror_buf;
+	void *stdio_locks;
+
+	/* Part 3 -- the positions of these fields relative to
+	 * the end of the structure is external and internal ABI. */
+	vaddr_t canary_at_end;
+	vaddr_t *dtv_copy;
+};
+
+enum {
+	DT_EXITING = 0,
+	DT_JOINABLE,
+	DT_DETACHED,
+};
 
 static volatile int* null_ptr = NULL;
 #define ABORT() do {int i = *null_ptr;} while(0)
 
-int
-cos_rt_sigprocmask(int how, void* set, void* oldset, size_t sigsetsize)
-{
-	/* Musl uses this at thread create time */
-	printc("rt_sigprocmask not implemented\n");
-	errno = ENOSYS;
-	return -1;
-}
 
 /* Thread related functions */
 pid_t
@@ -91,9 +133,8 @@ cos_nanosleep(const struct timespec *req, struct timespec *rem)
 long
 cos_set_tid_address(int *tidptr)
 {
-	printc("yikes\n");
 	/* Just do nothing for now and hope that works */
-	return 0;
+	return cos_thdid();
 }
 
 /* struct user_desc {
@@ -120,14 +161,15 @@ setup_thread_area(void *thread, void* data)
 int
 cos_set_thread_area(void* data)
 {
-	setup_thread_area(NULL, data);
+	assert(0);
+	sched_set_tls((void*)data);
 	return 0;
 }
 
 int
 cos_clone(int (*func)(void *), void *stack, int flags, void *arg, pid_t *ptid, void *tls, pid_t *ctid)
 {
-	printc("AHHHH\n");
+	assert(0);
 	if (!func) {
 		errno = EINVAL;
 		return -1;
@@ -224,16 +266,27 @@ cos_clock_gettime(clockid_t clock_id, struct timespec *ts)
 	return 0;
 }
 
+extern int __init_tp(void *p);
+
+
 /* TODO: init tls when creating components */
-#define PER_THD_TLS_MEM_SZ 8192
-char tls_space[PER_THD_TLS_MEM_SZ] = {0};
+// #define PER_THD_TLS_MEM_SZ 8192
+// char tls_space[PER_THD_TLS_MEM_SZ] = {0};
+
+struct pthread thread_data;
 void tls_init()
 {
 	/* NOTE: GCC uses tls space similar to a stack, memory is accessed from high address to low address */
-	vaddr_t* tls_addr	= (vaddr_t *)((char *)&tls_space + PER_THD_TLS_MEM_SZ - sizeof(vaddr_t));
-	*tls_addr		= (vaddr_t)&tls_addr;
+	// vaddr_t* tls_addr	= (vaddr_t *)((char *)&tls_space + PER_THD_TLS_MEM_SZ - sizeof(vaddr_t));
+	// *tls_addr		= (vaddr_t)&tls_addr;
 
-	sched_set_tls((void*)tls_addr);
+	thread_data.self = &thread_data;
+	thread_data.tid = cos_thdid();
+	thread_data.robust_list.head = &thread_data.robust_list.head;
+	thread_data.tsd = calloc(PTHREAD_KEYS_MAX, sizeof(void *));
+	thread_data.next = &thread_data;
+
+	sched_set_tls(&thread_data);
 }
 
 void
@@ -241,7 +294,6 @@ libc_posixsched_initialization_handler()
 {
 	ps_lock_init(&futex_lock);
 	libc_syscall_override((cos_syscall_t)(void*)cos_nanosleep, __NR_nanosleep);
-	libc_syscall_override((cos_syscall_t)(void*)cos_rt_sigprocmask, __NR_rt_sigprocmask);
 	libc_syscall_override((cos_syscall_t)(void*)cos_gettid, __NR_gettid);
 	libc_syscall_override((cos_syscall_t)(void*)cos_tkill, __NR_tkill);
 	libc_syscall_override((cos_syscall_t)(void*)cos_set_thread_area, __NR_set_thread_area);

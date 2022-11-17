@@ -17,9 +17,11 @@ COMPOBJ =$(COMPNAME).o
 
 RUST_TARGET_PATH=$(shell pwd)
 RUSTFLAGS= --emit=obj
+RUST_BACKTRACE=1
 
 export RUST_TARGET_PATH
 export RUSTFLAGS
+export RUST_BACKTRACE
 
 C_OBJS  =$(patsubst %.c,%.o,$(wildcard *.c))
 CXX_OBJS=$(patsubst %.cc,%.o,$(wildcard *.cc))

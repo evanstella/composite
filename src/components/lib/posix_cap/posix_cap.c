@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <syscall.h>
 #include <time.h>
+#include <poll.h>
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -143,6 +144,46 @@ cos_mprotect(void *addr, size_t len, int prot)
 	return 0;
 }
 
+int 
+cos_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	unsigned long i;
+
+	for (i = 0; i < nfds; i++) {
+		fds[i].revents &= POLLNVAL;
+	}
+
+	return 0;
+}
+
+char *
+cos_getcwd(char *buf, size_t size)
+{
+	if (buf != NULL) {
+		strcpy(buf, "/");
+		return buf;
+	}
+
+	return NULL;
+}
+
+
+// ssize_t 
+// cos_getrandom(void *buf, size_t buflen, unsigned int flags)
+// {
+// 	/* this will work for now :/ */
+// 	int i;
+
+// 	assert(buf);
+
+// 	for (i = 0; i < buflen; i++) {
+// 		*((u8_t *)buf) = rand() % 255;
+// 	}
+
+// 	return buflen
+// }
+
+
 void
 libc_posixcap_initialization_handler()
 {
@@ -156,4 +197,6 @@ libc_posixcap_initialization_handler()
 	libc_syscall_override((cos_syscall_t)(void*)cos_mremap, __NR_mremap);
 	libc_syscall_override((cos_syscall_t)(void*)cos_mprotect, __NR_mprotect);
 	libc_syscall_override((cos_syscall_t)(void*)cos_mmap, __NR_mmap);
+	libc_syscall_override((cos_syscall_t)(void*)cos_poll, __NR_poll);
+	libc_syscall_override((cos_syscall_t)(void*)cos_getcwd, __NR_getcwd);
 }

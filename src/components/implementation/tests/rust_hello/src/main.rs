@@ -1,25 +1,20 @@
-// #![no_main]                  /* we can't rely on the stdlib's runtime assumptions */
-//#![feature(lang_items)]      /* we'll move this eh_personality stuff into it's own crate later */
-#![feature(restricted_std)]  /* This is poorly documented. Rustc doesnt like us using unstable library features without denoting it*/
-
 extern crate unwinding;
 
-use std::os::raw::c_char;
-
-extern "C" {
-    /* this will link with musl */
-    fn printf(fmt: *const c_char, ...) -> i32;
-}
-
+use std::collections::HashMap;
 
 fn main() {
-    unsafe {
-        /* isn't this pretty */
-        printf(b"HELLO RUST\n\0".as_ptr() as *const i8);
-    }
+    let mut scores = HashMap::new();
+
+    scores.insert(String::from("Blue"), 10);
+    scores.insert(String::from("Yellow"), 50);
+    
+    get_score(scores, String::from("Yellow"));
 }
 
-#[no_mangle]
-pub extern "C" fn cos_init() {
-    
+fn get_score(scores: HashMap<String, i64>, team_name: String) {
+    let score = match scores.get(&team_name) {
+                    Some(num) => num.to_string(),
+                    None => "nonexistent".to_string()
+                };
+    println!("{}'s score is {}", team_name, score);
 }

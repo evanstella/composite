@@ -87,6 +87,10 @@ syscall_emulation_setup()
 {
 }
 
+void __init_tls(size_t *auxv)
+{
+}
+
 CWEAKSYMB long
 cos_syscall_handler(int syscall_num, long a, long b, long c, long d, long e, long f, long g)
 {
