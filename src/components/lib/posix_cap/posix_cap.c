@@ -5,7 +5,6 @@
 #include <syscall.h>
 #include <time.h>
 #include <poll.h>
-#include <unistd.h>
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -25,55 +24,41 @@ ssize_t
 write_bytes_to_stdout(const char *buf, size_t count)
 {
 	size_t i;
-
-	ps_lock_take(&stdout_lock);
 	for (i = 0; i < count; i++) printc("%c", buf[i]);
-	ps_lock_release(&stdout_lock);
-
 	return count;
 }
 
 ssize_t
-read_bytes_from_stdin(char *buf, size_t count)
+cos_write(int fd, const void *buf, size_t count)
 {
-	assert(0);
-	return 0;
-}
-
-ssize_t
-cos_write(int fd, const char *buf, size_t count)
-{
-	struct cos_posix_file_generic *f = cos_posix_fd_get(fd);
-
-	if (f == NULL || f->write == NULL) return 0;
-
-	return f->write(buf, count);
-}
-
-ssize_t
-cos_read(int fd, char *buf, size_t count)
-{
-	struct cos_posix_file_generic *f = cos_posix_fd_get(fd);
-
-	if (f == NULL || f->read == NULL) return 0;
-
-	return f->read(buf, count);
+	/* You shouldn't write to stdin anyway, so don't bother special casing it */
+	if (fd == 1 || fd == 2) {
+		ps_lock_take(&stdout_lock);
+		write_bytes_to_stdout((const char *) buf, count);
+		ps_lock_release(&stdout_lock);
+		return count;
+	} else {
+		printc("fd: %d not supported!\n", fd);
+		assert(0);
+	}
 }
 
 ssize_t
 cos_writev(int fd, const struct iovec *iov, int iovcnt)
 {
-	int                            i;
-	ssize_t                        ret = 0;
-	struct cos_posix_file_generic *f = cos_posix_fd_get(fd);
-
-	if (f == NULL || f->write == NULL) return 0;
-
-	for (i=0; i<iovcnt; i++) {
-		ret += f->write((const void *)iov[i].iov_base, iov[i].iov_len);
+	if (fd == 1 || fd == 2) {
+		ps_lock_take(&stdout_lock);
+		int i;
+		ssize_t ret = 0;
+		for (i=0; i<iovcnt; i++) {
+			ret += write_bytes_to_stdout((const void *)iov[i].iov_base, iov[i].iov_len);
+		}
+		ps_lock_release(&stdout_lock);
+		return ret;
+	} else {
+		printc("fd: %d not supported!\n", fd);
+		assert(0);
 	}
-
-	return ret;
 }
 
 long
@@ -84,6 +69,16 @@ cos_ioctl(int fd, int request, void *data)
 
 	printc("ioctl on fd(%d) not implemented\n", fd);
 	assert(0);
+	return 0;
+}
+
+ssize_t
+cos_brk(void *addr)
+{
+	printc("brk not implemented\n");
+	/* Unsure if the below comment is accurate. We return 0, so doesn't brk "succeed"? */
+	/* musl libc tries to use brk to expand heap in malloc. But if brk fails, it
+	   turns to mmap. So this fake brk always fails, force musl libc to use mmap */
 	return 0;
 }
 
@@ -172,32 +167,31 @@ cos_getcwd(char *buf, size_t size)
 	return NULL;
 }
 
-static int
-console_init(cos_posix_write_fn_t w, cos_posix_read_fn_t r)
-{
-	/* dont need any more functionality other than read or write for now */
-	struct cos_posix_file_generic *f; 
-	int fd;
 
-	fd = cos_posix_fd_alloc();
-	if (fd == -1) return -1;
+// ssize_t 
+// cos_getrandom(void *buf, size_t buflen, unsigned int flags)
+// {
+// 	/* this will work for now :/ */
+// 	int i;
 
-	f = cos_posix_fd_get(fd);
+// 	assert(buf);
 
-	f->read  = r;
-	f->write = w;
+// 	for (i = 0; i < buflen; i++) {
+// 		*((u8_t *)buf) = rand() % 255;
+// 	}
 
-	return fd;
-}
+// 	return buflen
+// }
+
 
 void
 libc_posixcap_initialization_handler()
 {
 	ps_lock_init(&stdout_lock);
 	libc_syscall_override((cos_syscall_t)(void*)cos_write, __NR_write);
-	libc_syscall_override((cos_syscall_t)(void*)cos_read, __NR_read);
 	libc_syscall_override((cos_syscall_t)(void*)cos_writev, __NR_writev);
 	libc_syscall_override((cos_syscall_t)(void*)cos_ioctl, __NR_ioctl);
+	libc_syscall_override((cos_syscall_t)(void*)cos_brk, __NR_brk);
 	libc_syscall_override((cos_syscall_t)(void*)cos_munmap, __NR_munmap);
 	libc_syscall_override((cos_syscall_t)(void*)cos_madvise, __NR_madvise);
 	libc_syscall_override((cos_syscall_t)(void*)cos_mremap, __NR_mremap);
@@ -205,9 +199,4 @@ libc_posixcap_initialization_handler()
 	libc_syscall_override((cos_syscall_t)(void*)cos_mmap, __NR_mmap);
 	libc_syscall_override((cos_syscall_t)(void*)cos_poll, __NR_poll);
 	libc_syscall_override((cos_syscall_t)(void*)cos_getcwd, __NR_getcwd);
-
-	/* stdin, stdout, stderr */
-	assert(console_init(NULL, read_bytes_from_stdin) == STDIN_FILENO);
-	assert(console_init(write_bytes_to_stdout, NULL) == STDOUT_FILENO);
-	assert(console_init(write_bytes_to_stdout, NULL) == STDERR_FILENO);
 }

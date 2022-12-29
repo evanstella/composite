@@ -12,9 +12,8 @@ cos_syscall_handler(int syscall_num, long a, long b, long c, long d, long e, lon
 	assert(syscall_num <= SYSCALLS_NUM);
 
 	if (!cos_syscalls[syscall_num]){
-		printc("Component %ld calling unimplemented system call %d. Returning -1.\n", cos_spd_id(), syscall_num);
-		errno = ENOSYS;
-		return -1;
+		printc("Component %ld calling unimplemented system call %d. Returning ENOSYS.\n", cos_spd_id(), syscall_num);
+		return ENOSYS;
 	} else {
 		return cos_syscalls[syscall_num](a, b, c, d, e, f);
 	}
@@ -38,27 +37,6 @@ pre_syscall_default_setup()
 		cos_syscalls[i] = 0;
 	}
 }
-
-struct cos_posix_file_generic fd_table[POSIX_NUM_FD];
-int curr_fd = 0;
-
-int 
-cos_posix_fd_alloc() 
-{
-	/* it's gotta do at least one */
-	if (curr_fd == POSIX_NUM_FD) return -1;
-
-	return curr_fd++;
-}
-
-inline struct cos_posix_file_generic *
-cos_posix_fd_get(int fd)
-{
-	if (fd < 0 || fd > POSIX_NUM_FD) return NULL;
-
-	return &fd_table[fd];
-}
-
 
 void
 libc_initialization_handler()
