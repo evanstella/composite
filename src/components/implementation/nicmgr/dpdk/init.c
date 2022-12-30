@@ -88,7 +88,8 @@ cos_hash_lookup(uint16_t tenant_id)
 	}
 
 	ret = rte_hash_lookup_data(tenant_hash_tbl, &tenant_id, (void *)&session);
-	assert(ret >= 0);
+	assert(ret != EINVAL);
+	if (ret == -ENOENT) return NULL;
 
 	return session;
 }
@@ -157,13 +158,12 @@ process_rx_packets(cos_portid_t port_id, char** rx_pkts, uint16_t nb_pkts)
 
 		if (htons(eth->ether_type) == 0x0800) {
 			iph	= (struct ip_hdr *)((char *)eth + sizeof(struct eth_hdr));
-			if (unlikely(iph->proto != UDP_PROTO)) {
-				cos_free_packet(buf.pkt);
-				rx_enqueued_miss++;
-				continue;
-			}
+			// if (unlikely(iph->proto != UDP_PROTO)) {
+			// 	cos_free_packet(buf.pkt);
+			// 	rx_enqueued_miss++;
+			// 	continue;
+			// }
 			port	= (struct tcp_udp_port *)((char *)eth + sizeof(struct eth_hdr) + iph->ihl * 4);
-
 			session = cos_hash_lookup(port->dst_port);
 			if (unlikely(session == NULL)) {
 				cos_free_packet(rx_pkts[i]);
