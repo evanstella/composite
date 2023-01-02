@@ -23,7 +23,7 @@ main(void)
 {
 	int ret		= 0;
 	u32_t ip	= inet_addr("10.10.1.2");
-	u16_t port	= 80;
+	u16_t port	= 8080;
 	struct conn_addr client_addr;
 	shm_bm_objid_t           objid;
 	struct netshmem_pkt_buf *rx_obj;
@@ -47,6 +47,7 @@ main(void)
 		rx_obj = shm_bm_take_net_pkt_buf(netshmem_get_shm(), objid);
 		
 		data = rx_obj->data + data_offset;
+		printc("data %s\n", data);
 
 		tx_obj = shm_bm_alloc_net_pkt_buf(netshmem_get_shm(), &objid);
 		memcpy(netshmem_get_data_buf(tx_obj), data, data_len);

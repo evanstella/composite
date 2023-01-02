@@ -54,7 +54,6 @@ ssize_t
 cos_read(int fd, char *buf, size_t count)
 {
 	struct cos_posix_file_generic *f = cos_posix_fd_get(fd);
-
 	if (f == NULL || f->read == NULL) return 0;
 
 	return f->read(buf, count);

@@ -88,7 +88,7 @@ cos_hash_lookup(uint16_t tenant_id)
 	}
 
 	ret = rte_hash_lookup_data(tenant_hash_tbl, &tenant_id, (void *)&session);
-	assert(ret != EINVAL);
+	assert(ret != -EINVAL);
 	if (ret == -ENOENT) return NULL;
 
 	return session;

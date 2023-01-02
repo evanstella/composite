@@ -15,7 +15,7 @@ typedef long (*cos_syscall_t)(long a, long b, long c, long d, long e, long f);
 typedef ssize_t (*cos_posix_write_fn_t)(const char *buf, size_t count);
 typedef ssize_t (*cos_posix_read_fn_t)(char *buf, size_t count);
 
-#define POSIX_NUM_FD 16 /* 1024 is probably over doing it for now. */
+#define POSIX_NUM_FD 1024
 
 struct cos_posix_file_generic {
 	cos_posix_write_fn_t write;

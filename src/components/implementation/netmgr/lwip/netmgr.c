@@ -20,6 +20,9 @@
 /* This is used to indicate whether the packet is a data packet to application or a state packet to lwip */
 static int back_to_app = 0;
 
+/* block while we wait for a tcp connection */
+static volatile int tcp_accept_blocking = 0;
+
 static shm_bm_objid_t g_objid;
 
 static u16_t g_data_offset, g_data_len;
@@ -82,6 +85,8 @@ cos_lwip_tcp_accept(void *arg, struct tcp_pcb *tp, err_t err)
 	lwip_connections[thd].tp = tp;
 
 	tcp_nagle_disable(tp);
+
+	tcp_accept_blocking = 0;
 
 	ret_err = ERR_OK;
 	return ret_err;
@@ -173,17 +178,30 @@ netmgr_tcp_accept(struct conn_addr *client_addr)
 	cbuf_t rx_shm_id;
 	void  *mem;
 	u16_t  pkt_len;
+	volatile struct tcp_pcb *pcb;
 
 	thdid_t thd = cos_thdid();
+
+	tcp_accept_blocking = 1;
 
 	netif_set_link_up(&net_interface);
 	tcp_accept(lwip_connections[thd].tp, cos_lwip_tcp_accept);
 
-	while (!back_to_app) {
+	while (tcp_accept_blocking) {
 		objid = nic_get_a_packet(&pkt_len);
 		obj   = shm_bm_take_net_pkt_buf(netshmem_get_shm(), objid);
 		net_receive_packet(obj->data, pkt_len);
 	}
+
+	pcb = lwip_connections[thd].tp;
+
+	if (IP_IS_V4(&pcb->remote_ip)) {
+		client_addr->ip   = ip_addr_get_ip4_u32(&pcb->remote_ip);
+		client_addr->port = pcb->remote_port;
+	} else {
+		assert(0);
+	}
+
 	g_objid = objid;
 
 	return 0;

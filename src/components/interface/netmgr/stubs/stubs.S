@@ -3,7 +3,7 @@
 cos_asm_stub(netmgr_tcp_bind)
 cos_asm_stub(netmgr_shmem_map)
 cos_asm_stub(netmgr_tcp_listen)
-cos_asm_stub(netmgr_tcp_accept)
+cos_asm_stub_indirect(netmgr_tcp_accept)
 cos_asm_stub_indirect(netmgr_tcp_shmem_read)
 cos_asm_stub(netmgr_tcp_shmem_write)
 cos_asm_stub(netmgr_udp_bind)

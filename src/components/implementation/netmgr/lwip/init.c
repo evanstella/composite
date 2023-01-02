@@ -136,12 +136,12 @@ cos_init(void)
 
 	/* Add static arp entry for client IP */
 	IP4_ADDR(&client, 10,10,1,1);
-	ethaddr.addr[0] = 0x52;
-	ethaddr.addr[1] = 0x9c;
-	ethaddr.addr[2] = 0xd1;
-	ethaddr.addr[3] = 0x13;
-	ethaddr.addr[4] = 0xa2;
-	ethaddr.addr[5] = 0x0e;
+	ethaddr.addr[0] = 0x4a;
+	ethaddr.addr[1] = 0x25;
+	ethaddr.addr[2] = 0x24;
+	ethaddr.addr[3] = 0x0e;
+	ethaddr.addr[4] = 0x5c;
+	ethaddr.addr[5] = 0x27;
 	etharp_add_static_entry(&client, &ethaddr);
 
 	printc("netmgr init done\n");

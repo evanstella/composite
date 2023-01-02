@@ -51,6 +51,7 @@ parallel_main(coreid_t cid)
 		/* application would like to own the shmem because it does not want ohters to free it. */
 		rx_obj = shm_bm_transfer_net_pkt_buf(netshmem_get_shm(), objid);
 		data = rx_obj->data + data_offset;
+		printc("data: %s\n", data);
 
 		tx_obj = shm_bm_alloc_net_pkt_buf(netshmem_get_shm(), &objid);
 		assert(tx_obj);

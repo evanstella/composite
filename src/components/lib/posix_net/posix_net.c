@@ -95,14 +95,12 @@ cos_bind(int fd, const struct sockaddr *addr, socklen_t len)
 	
 	sock = (struct cos_posix_file_socket *)cos_posix_fd_get(fd);
 	if (sock == NULL) return -1;
-	/* TODO: this should probably fail if we try to rebind a socket */
+	/* TODO: this should fail if we try to rebind a socket */
 
 	switch (sock->type)
 	{
 		case SOCK_STREAM : {
 			struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
-			/* I think this is because of the qemu TAP interface we are using for networking? */
-			if (inaddr->sin_addr.s_addr == 0) inaddr->sin_addr.s_addr = inet_addr("10.10.1.2");
 
 			ret = netmgr_tcp_bind(inaddr->sin_addr.s_addr, inaddr->sin_port);
 			if (ret != NETMGR_OK) return -1;
@@ -151,6 +149,7 @@ cos_accept(int fd, struct sockaddr *sockaddr_ret, socklen_t *len_ret)
 	int ret, conn_fd;
 	struct cos_posix_file_socket *sock, *conn;
 	struct conn_addr client_addr;
+	client_addr.ip = 0;
 
 	sock = (struct cos_posix_file_socket *)cos_posix_fd_get(fd);
 	if (sock == NULL) return -1;
@@ -158,7 +157,7 @@ cos_accept(int fd, struct sockaddr *sockaddr_ret, socklen_t *len_ret)
 	/* reserve a fd for the connection */
 	conn_fd = cos_posix_fd_alloc();
 	if (conn_fd == -1) return -1;
-	conn = (struct cos_posix_file_socket *)cos_posix_fd_get(fd);
+	conn = (struct cos_posix_file_socket *)cos_posix_fd_get(conn_fd);
 
 	switch (sock->type)
 	{

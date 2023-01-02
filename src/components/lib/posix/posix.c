@@ -54,7 +54,7 @@ cos_posix_fd_alloc()
 inline struct cos_posix_file_generic *
 cos_posix_fd_get(int fd)
 {
-	if (fd < 0 || fd > POSIX_NUM_FD) return NULL;
+	if (fd < 0 || fd > POSIX_NUM_FD || fd >= curr_fd) return NULL;
 
 	return &fd_table[fd];
 }

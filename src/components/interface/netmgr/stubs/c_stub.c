@@ -41,3 +41,16 @@ COS_CLIENT_STUB(int, netmgr_udp_shmem_write, shm_bm_objid_t objid, u16_t data_of
 
 	return ret;
 }
+
+COS_CLIENT_STUB(int, netmgr_tcp_accept, struct conn_addr *client_addr)
+{
+	COS_CLIENT_INVCAP;
+	word_t r1, r2, r3;
+
+	r1 = cos_sinv_2rets(uc->cap_no, 0, 0, 0, 0, &r2, &r3);
+
+	client_addr->ip = r2;
+	client_addr->port = r3;
+
+	return r1;
+}
