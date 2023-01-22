@@ -89,7 +89,7 @@ cos_ioctl(int fd, int request, void *data)
 void *
 cos_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-	void *ret=0;
+	void *ret = 0;
 
 	if (addr != NULL) {
 		printc("parameter void *addr is not supported!\n");
@@ -144,8 +144,7 @@ int
 cos_mprotect(void *addr, size_t len, int prot)
 {
 	/* Musl uses this at thread create time */
-	printc("mprotect not implemented\n");
-	return 0;
+	return ENOSYS;
 }
 
 int 

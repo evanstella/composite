@@ -4,6 +4,8 @@
 
 typedef long (*cos_syscall_t)(long a, long b, long c, long d, long e, long f);
 
+/* we need some dynamic memory allocation. */
+extern void *malloc(size_t sz);
 
 /* 
  * File Descriptor capability for composite.
@@ -20,6 +22,7 @@ typedef ssize_t (*cos_posix_read_fn_t)(char *buf, size_t count);
 struct cos_posix_file_generic {
 	cos_posix_write_fn_t write;
     cos_posix_read_fn_t  read;
+    /* stat, seek, sockoptions ioctls m/unmap */
     unsigned char        __data[128]; /* non-generic implementations define what goes here */
 };
 

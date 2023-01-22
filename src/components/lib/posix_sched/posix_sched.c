@@ -17,48 +17,8 @@
 #include <ps_list.h>
 #include <sched.h>
 #include <pthread.h>
+#include <res_spec.h>
 
-struct pthread {
-	/* Part 1 -- these fields may be external or
-	 * internal (accessed via asm) ABI. Do not change. */
-	struct pthread *self;
-	vaddr_t *dtv;
-	struct pthread *prev, *next; /* non-ABI */
-	vaddr_t sysinfo;
-	vaddr_t canary, canary2;
-
-	/* Part 2 -- implementation details, non-ABI. */
-	int tid;
-	int errno_val;
-	volatile int detach_state;
-	volatile int cancel;
-	volatile unsigned char canceldisable, cancelasync;
-	unsigned char tsd_used:1;
-	unsigned char dlerror_flag:1;
-	unsigned char *map_base;
-	size_t map_size;
-	void *stack;
-	size_t stack_size;
-	size_t guard_size;
-	void *result;
-	struct __ptcb *cancelbuf;
-	void **tsd;
-	struct {
-		volatile void *volatile head;
-		long off;
-		volatile void *volatile pending;
-	} robust_list;
-	volatile int timer_id;
-	locale_t locale;
-	volatile int killlock[1];
-	char *dlerror_buf;
-	void *stdio_locks;
-
-	/* Part 3 -- the positions of these fields relative to
-	 * the end of the structure is external and internal ABI. */
-	vaddr_t canary_at_end;
-	vaddr_t *dtv_copy;
-};
 
 enum {
 	DT_EXITING = 0,
@@ -137,21 +97,6 @@ cos_set_tid_address(int *tidptr)
 	return cos_thdid();
 }
 
-/* struct user_desc {
- *     int  		  entry_number; // Ignore
- *     unsigned int  base_addr; // Pass to cos thread mod
- *     unsigned int  limit; // Ignore
- *     unsigned int  seg_32bit:1;
- *     unsigned int  contents:2;
- *     unsigned int  read_exec_only:1;
- *     unsigned int  limit_in_pages:1;
- *     unsigned int  seg_not_present:1;
- *     unsigned int  useable:1;
- * };
- */
-
-void* backing_data[MAX_NUM_THREADS];
-
 static void
 setup_thread_area(void *thread, void* data)
 {
@@ -159,26 +104,82 @@ setup_thread_area(void *thread, void* data)
 }
 
 int
-cos_set_thread_area(void* data)
+cos_set_thread_area(void *data)
 {
-	assert(0);
 	sched_set_tls((void*)data);
 	return 0;
 }
 
 int
-cos_clone(int (*func)(void *), void *stack, int flags, void *arg, pid_t *ptid, void *tls, pid_t *ctid)
+__set_thread_area(void *data)
 {
-	assert(0);
+	return cos_set_thread_area(data);
+}
+
+struct thd_bootstrap_args {
+	cos_thd_fn_t fn;
+	void        *tls_addr;
+	void        *fn_args;
+};
+
+static void
+__thd_bootstrap_self(struct thd_bootstrap_args *args)
+{
+	cos_thd_fn_t fn;
+	void        *fn_args;
+
+	if (args->tls_addr) sched_set_tls(args->tls_addr);
+
+	fn      = args->fn;
+	fn_args = args->fn_args;
+
+	/* we got this mem from malloc, free it */
+	free(args);
+
+	/* enter thread routine */
+	fn(fn_args);
+}
+
+int
+cos_clone(void (*func)(void *), void *stack, int flags, void *arg, pid_t *ptid, void *tls, pid_t *ctid)
+{
+	struct thd_bootstrap_args *args;
+	thdid_t tid;
+
 	if (!func) {
 		errno = EINVAL;
 		return -1;
 	}
-	/* FIXME: call scheduler component to finish this */
-	//struct sl_thd * thd = sl_thd_alloc((cos_thd_fn_t)(void*)func, arg);
-	if (tls) {
-		setup_thread_area(NULL, tls);
-	}
+
+	/* we dont use the stack memory passed in. Use it for store these args instead */
+	args = (struct thd_bootstrap_args *)malloc(sizeof(struct thd_bootstrap_args));
+	if (args == NULL) assert(0); /* We could try to exit more gracefully */
+
+	args->fn       = func,
+	args->tls_addr = tls,
+	args->fn_args  = arg,
+
+	tid = sched_thd_create((cos_thd_fn_t)__thd_bootstrap_self, (void *)args);
+	sched_thd_param_set(tid, sched_param_pack(SCHEDP_PRIO, 1));
+
+	*ptid = tid;
+	*ctid = tid;
+
+	return 0;
+}
+
+int 
+__clone(void (*func)(void *), void *stack, int flags, void *arg, pid_t *ptid, void *tls, pid_t *ctid)
+{
+	return cos_clone(func, stack, flags, arg, ptid, tls, ctid);
+}
+
+int
+cos_exit(int code)
+{
+	/* TODO handle exit vals somehow */
+	sched_thd_exit();
+	BUG();
 	return 0;
 }
 
@@ -239,14 +240,96 @@ lookup_futex(int *uaddr)
 /* TODO: Cleanup empty futexes */
 static struct ps_lock futex_lock;
 
+int cos_futex_wake(struct futex_data *futex, int wakeup_count)
+{
+	struct futex_waiter *waiter, *tmp;
+	int awoken = 0;
+
+	ps_list_foreach_del_d(&futex->waiters, waiter, tmp) {
+		if (awoken >= wakeup_count) {
+			return awoken;
+		}
+		ps_list_rem_d(waiter);
+		sched_thd_wakeup(waiter->thdid);
+		awoken += 1;
+	}
+	return awoken;
+}
+
+int
+cos_futex_wait(struct futex_data *futex, int *uaddr, int val, const struct timespec *timeout)
+{
+	cycles_t   deadline = 0;
+	microsec_t wait_time;
+	struct futex_waiter waiter = (struct futex_waiter) {
+		.thdid = cos_thdid()
+	};
+
+	if (*uaddr != val) return EAGAIN;
+
+	ps_list_init_d(&waiter);
+	ps_list_head_append_d(&futex->waiters, &waiter);
+
+	if (timeout != NULL) {
+		/* for now... */
+		return -ENOSYS;
+	}
+
+	do {
+		/* No race here, we'll enter the awoken state if things go wrong */
+		ps_lock_release(&futex_lock);
+		if (timeout == NULL) {
+			sched_thd_block(0);
+		} else {
+			sched_thd_block_timeout(0, deadline);
+		}
+		ps_lock_take(&futex_lock);
+	/* We continue while the waiter is in the list, and the deadline has not elapsed */
+	} while(!ps_list_singleton_d(&waiter) && (timeout == NULL || ps_tsc() < deadline));
+
+	/* If our waiter is still in the list (meaning we quit because the deadline elapsed),
+	 * then we remove it from the list. */
+	if (!ps_list_singleton_d(&waiter)) {
+		ps_list_rem_d(&waiter);
+	}
+	/* We exit the function with futex_lock taken */
+	return 0;
+}
+
 int
 cos_futex(int *uaddr, int op, int val,
           const struct timespec *timeout, /* or: uint32_t val2 */
 		  int *uaddr2, int val3)
 {
-	printc("futex not implemented\n");
-	errno = ENOSYS;
-	return -1;
+	int result = 0;
+	struct futex_data *futex;
+
+	ps_lock_take(&futex_lock);
+
+	/* TODO: Consider whether these options have sensible composite interpretations */
+	op &= ~FUTEX_PRIVATE;
+	assert(!(op & FUTEX_CLOCK_REALTIME));
+
+	futex = lookup_futex(uaddr);
+	switch (op) {
+		case FUTEX_WAIT:
+			result = cos_futex_wait(futex, uaddr, val, timeout);
+			if (result != 0) {
+				errno = result;
+				result = -1;
+			}
+			break;
+		case FUTEX_WAKE:
+			result = cos_futex_wake(futex, val);
+			break;
+		default:
+			printc("Unsupported futex operation");
+			assert(0);
+	}
+
+	ps_lock_release(&futex_lock);
+
+	return result;
 }
 
 int
@@ -266,27 +349,11 @@ cos_clock_gettime(clockid_t clock_id, struct timespec *ts)
 	return 0;
 }
 
-extern int __init_tp(void *p);
-
-
-/* TODO: init tls when creating components */
-// #define PER_THD_TLS_MEM_SZ 8192
-// char tls_space[PER_THD_TLS_MEM_SZ] = {0};
-
-struct pthread thread_data;
-void tls_init()
+int
+cos_sigaction(void)
 {
-	/* NOTE: GCC uses tls space similar to a stack, memory is accessed from high address to low address */
-	// vaddr_t* tls_addr	= (vaddr_t *)((char *)&tls_space + PER_THD_TLS_MEM_SZ - sizeof(vaddr_t));
-	// *tls_addr		= (vaddr_t)&tls_addr;
-
-	thread_data.self = &thread_data;
-	thread_data.tid = cos_thdid();
-	thread_data.robust_list.head = &thread_data.robust_list.head;
-	thread_data.tsd = calloc(PTHREAD_KEYS_MAX, sizeof(void *));
-	thread_data.next = &thread_data;
-
-	sched_set_tls(&thread_data);
+	/* rust does not like this returning -1 */
+	return 0;
 }
 
 void
@@ -301,6 +368,6 @@ libc_posixsched_initialization_handler()
 	libc_syscall_override((cos_syscall_t)(void*)cos_clone, __NR_clone);
 	libc_syscall_override((cos_syscall_t)(void*)cos_futex, __NR_futex);
 	libc_syscall_override((cos_syscall_t)(void*)cos_clock_gettime, __NR_clock_gettime);
-
-	tls_init();
+	libc_syscall_override((cos_syscall_t)(void*)cos_sigaction, __NR_rt_sigaction);
+	libc_syscall_override((cos_syscall_t)(void*)cos_exit, __NR_exit);
 }

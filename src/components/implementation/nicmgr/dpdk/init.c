@@ -185,6 +185,7 @@ process_rx_packets(cos_portid_t port_id, char** rx_pkts, uint16_t nb_pkts)
 				debug_flag = 0;
 			}
 		} else if (htons(eth->ether_type) == 0x0806) {
+			printc("ARP NOT SUPPORTED\n");
 			assert(0);
 		}
 	}

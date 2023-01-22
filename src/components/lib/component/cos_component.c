@@ -87,10 +87,6 @@ syscall_emulation_setup()
 {
 }
 
-void __init_tls(size_t *auxv)
-{
-}
-
 CWEAKSYMB long
 cos_syscall_handler(int syscall_num, long a, long b, long c, long d, long e, long f, long g)
 {
@@ -329,13 +325,13 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 		pre_syscall_setup();
 		/* libc needs syscall emulation to work */
 		syscall_emulation_setup();
-		/* With all that setup, we can invoke the libc_initialization_handler */
-		libc_initialization_handler();
 		/* init lib posix variants */
 		libc_posixcap_initialization_handler();
 		libc_posixsched_initialization_handler();
 		libc_posixnet_initialization_handler();
 
+		/* With all that setup, we can invoke the libc_initialization_handler */
+		libc_initialization_handler();
 
 		constructors_execute();
 	}
