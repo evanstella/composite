@@ -18,6 +18,7 @@
 #include <sched.h>
 #include <pthread.h>
 #include <res_spec.h>
+#include <cos_time.h>
 
 
 enum {
@@ -74,18 +75,13 @@ time_to_microsec(const struct timespec *t)
 long
 cos_nanosleep(const struct timespec *req, struct timespec *rem)
 {
-	time_t remaining_seconds;
-	long remaining_nano_seconds;
-	microsec_t remaining_microseconds;
-	cycles_t wakeup_deadline, wakeup_time;
-	int completed_successfully;
-
 	if (!req) {
 		errno = EFAULT;
 		return -1;
 	}
+	
+	sched_thd_block_timeout(0, time_now() + time_usec2cyc(time_to_microsec(req)));
 
-	/* FIXME: call scheduler component to finish this sleep */
 	return 0;
 }
 
@@ -132,6 +128,9 @@ __thd_bootstrap_self(struct thd_bootstrap_args *args)
 
 	fn      = args->fn;
 	fn_args = args->fn_args;
+
+	/* call new thread setup fns for each active file */
+	cos_posix_new_thread_call_setup();
 
 	/* we got this mem from malloc, free it */
 	free(args);

@@ -44,6 +44,19 @@ struct lwip_pcb
 
 static struct lwip_pcb lwip_connections[LWIP_MAX_CONNS];
 
+/* TODO: synchronization */
+void
+netmgr_tcp_connection_transfer_from(thdid_t tid)
+{
+	thdid_t curr_tid   = cos_thdid();
+	struct tcp_pcb *tp = lwip_connections[tid].tp;
+
+	lwip_connections[tid].tp      = NULL;
+	lwip_connections[curr_tid].tp = tp;
+
+	return;
+}
+
 static err_t
 cos_lwip_tcp_sent(void *arg, struct tcp_pcb *tp, u16_t len)
 {
@@ -245,6 +258,7 @@ netmgr_tcp_shmem_write(shm_bm_objid_t objid, u16_t data_offset, u16_t data_len)
 	data = obj->data + data_offset;
 
 	err_t wr_err = tcp_write(lwip_connections[thd].tp, data, data_len, 0);
+	printc("%d\n", wr_err);
 	assert(wr_err == ERR_OK);
 
 	/* tcp_output() might be needed in the future */

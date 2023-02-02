@@ -6,6 +6,7 @@
 #include <shm_bm.h>
 #include <ck_ring.h>
 #include <sync_sem.h>
+#include <ps.h>
 
 #define NIC_MAX_SESSION 32
 #define NIC_MAX_SHEMEM_REGION 3
@@ -36,6 +37,9 @@ struct pkt_ring_buf {
 
 /* per thread session */
 struct client_session {
+
+	struct client_session *next;
+
 	struct shemem_info shemem_info;
 
 	thdid_t thd;
@@ -54,6 +58,16 @@ struct client_session {
 	int blocked_loops_begin;
 	/* number of bloocked loops exit of the tenant, this is counted each time when the thread exits its blocked state */
 	int blocked_loops_end;
+};
+
+struct tenant_session_buffer {
+	struct client_session *wait_stack;
+	
+	struct client_session *bound_sessions[NIC_MAX_SESSION];
+	size_t                 num_bound;
+	u32_t                  next_receiver;
+
+	struct ps_lock         lock;
 };
 
 extern struct pkt_ring_buf g_tx_ring;
@@ -82,8 +96,8 @@ int pkt_ring_buf_enqueue(struct pkt_ring_buf *pkt_ring_buf, struct pkt_buf *buf)
 int pkt_ring_buf_dequeue(struct pkt_ring_buf *pkt_ring_buf, struct pkt_buf *buf);
 int pkt_ring_buf_empty(struct pkt_ring_buf *pkt_ring_buf);
 
-void cos_hash_add(uint16_t tenant_id, struct client_session *session);
-struct client_session *cos_hash_lookup(uint16_t tenant_id);
+void cos_hash_add(uint16_t tenant_id, struct tenant_session_buffer *session);
+struct tenant_session_buffer *cos_hash_lookup(uint16_t tenant_id);
 
 #define USE_CK_RING_FREE_MBUF 1
 #endif /* NICMGR_H */

@@ -59,6 +59,15 @@ cos_posix_fd_get(int fd)
 	return &fd_table[fd];
 }
 
+void
+cos_posix_new_thread_call_setup()
+{
+	for (int i = 0; i < curr_fd; i++)
+	{
+		if (fd_table[i].setup_fn) fd_table[i].setup_fn(i);
+	}
+}
+
 
 void
 libc_initialization_handler()

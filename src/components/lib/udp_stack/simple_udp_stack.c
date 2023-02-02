@@ -132,6 +132,9 @@ udp_stack_udp_bind(u32_t ip_addr, u16_t port)
 	/* Hold server's IP and port */
 	u64_t mac;
 	char tmp;
+
+	if (ip_addr == 0) ip_addr = inet_addr("10.10.1.2");
+
 	host_ip = ip_addr;
 	host_port = htons(port);
 	mac = nic_get_port_mac_address(0);
@@ -143,6 +146,7 @@ udp_stack_udp_bind(u32_t ip_addr, u16_t port)
 	nic_mac.addr_bytes[3] = mac_addr[2];
 	nic_mac.addr_bytes[4] = mac_addr[1];
 	nic_mac.addr_bytes[5] = mac_addr[0];
+
 
 	nic_bind_port(ip_addr, htons(port));
 
@@ -164,7 +168,6 @@ udp_stack_shmem_read(u16_t *data_offset, u16_t *data_len, u32_t *remote_addr, u1
 	assert(obj);
 
 	ip_hdr = (struct ip_hdr *)(obj->data + ETH_STD_LEN);
-
 	/* try to pass the validation */
 	udp_stack_packet_validate(ip_hdr, pkt_len, host_ip, host_port);
 

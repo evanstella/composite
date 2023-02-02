@@ -6,7 +6,7 @@
 INTERFACE_EXPORTS =
 # The interfaces this component is dependent on for compilation (this
 # is a list of directory names in interface/)
-INTERFACE_DEPENDENCIES = memmgr contigmem netshmem netmgr
+INTERFACE_DEPENDENCIES = memmgr contigmem netshmem netmgr nic
 # The library dependencies this component is reliant on for
 # compilation/linking (this is a list of directory names in lib/)
 LIBRARY_DEPENDENCIES = component shm_bm posix posix_cap posix_sched posix_net

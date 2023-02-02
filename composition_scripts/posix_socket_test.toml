@@ -40,6 +40,6 @@ constructor = "booter"
 [[components]]
 name = "test"
 img  = "tests.posix_socket_test"
-deps = [{srv = "sched", interface = "init"}, {srv = "capmgr", interface = "contigmem"}, {srv = "capmgr", interface = "capmgr_create"},{srv = "sched", interface = "sched"}, {srv = "netmgr", interface = "netmgr"}, {srv = "capmgr", interface = "memmgr"}]
+deps = [{srv = "sched", interface = "init"}, {srv = "capmgr", interface = "contigmem"}, {srv = "capmgr", interface = "capmgr_create"},{srv = "sched", interface = "sched"}, {srv = "netmgr", interface = "netmgr"}, {srv = "capmgr", interface = "memmgr"}, {srv = "nicmgr", interface = "nic"}]
 constructor = "booter"
 

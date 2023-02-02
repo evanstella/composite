@@ -52,7 +52,7 @@ netshmem_map_shmem(cbuf_t shm_id)
 	shm	= shm_bm_create_net_pkt_buf(mem, npages * PAGE_SIZE);
 	assert(shm);
 
-	netshmems[thd].shm	= shm;
-	netshmems[thd].shm_id	= shm_id;
-	netshmems[thd].shmsz	= npages * PAGE_SIZE;
+	netshmems[thd].shm	  = shm;
+	netshmems[thd].shm_id = shm_id;
+	netshmems[thd].shmsz  = npages * PAGE_SIZE;
 }

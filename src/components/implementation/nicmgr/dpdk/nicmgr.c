@@ -28,6 +28,8 @@ struct pkt_ring_buf g_free_ring;
 
 rte_atomic64_t tx_enqueued_miss = {0};
 
+int session_id;
+
 void
 pkt_ring_buf_init(struct pkt_ring_buf *pkt_ring_buf, size_t ringbuf_num, size_t ringbuf_sz)
 {
@@ -66,6 +68,26 @@ pkt_ring_buf_empty(struct pkt_ring_buf *pkt_ring_buf)
 	return (!ck_ring_size(pkt_ring_buf->ring));
 }
 
+static int
+push_client_session(struct client_session *session)
+{
+	struct tenant_session_buffer *session_buffer;
+
+	/* session must be bound */
+	assert(session->port);
+
+	session_buffer = cos_hash_lookup(session->port);
+
+	ps_lock_take(&session_buffer->lock);
+
+	session->next = session_buffer->wait_stack;
+	session_buffer->wait_stack = session;
+
+	ps_lock_release(&session_buffer->lock);
+
+	return 0;
+}
+
 shm_bm_objid_t
 nic_get_a_packet(u16_t *pkt_len)
 {
@@ -81,6 +103,7 @@ nic_get_a_packet(u16_t *pkt_len)
 
 	session = &client_sessions[thd];
 
+	push_client_session(session);
 	session->blocked_loops_begin++;
 	sync_sem_take(&session->sem);
 	session->blocked_loops_end++;
@@ -148,6 +171,8 @@ nic_shmem_map(cbuf_t shm_id)
 int
 nic_bind_port(u32_t ip_addr, u16_t port)
 {
+	struct tenant_session_buffer *session_buffer;
+	
 	unsigned long npages;
 	void         *mem;
 
@@ -172,7 +197,6 @@ nic_bind_port(u32_t ip_addr, u16_t port)
 	client_sessions[thd].shemem_info.shmid = shmid;
 	client_sessions[thd].shemem_info.shm   = shm;
 	client_sessions[thd].shemem_info.paddr = paddr;
-	cos_hash_add(client_sessions[thd].port, &client_sessions[thd]);
 
 	sync_sem_init(&client_sessions[thd].sem, 0);
 
@@ -182,6 +206,21 @@ nic_bind_port(u32_t ip_addr, u16_t port)
 	client_sessions[thd].blocked_loops_begin = 0;
 	client_sessions[thd].blocked_loops_end = 0;
 	client_sessions[thd].tx_init_done = 1;
+
+	/* if there is not a session buffer for this port, we need to create it */
+	session_buffer = cos_hash_lookup(port);
+	if (session_buffer == NULL) {
+		session_buffer = malloc(sizeof(struct tenant_session_buffer));
+		assert(session_buffer);
+		bzero(session_buffer, sizeof(struct tenant_session_buffer));
+		ps_lock_init(&session_buffer->lock);
+		cos_hash_add(port, session_buffer);
+	}
+
+	ps_lock_take(&session_buffer->lock);
+	session_buffer->bound_sessions[session_buffer->num_bound++] = &client_sessions[thd];
+	ps_lock_release(&session_buffer->lock);
+
 
 	return 0;
 }
