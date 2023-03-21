@@ -30,9 +30,9 @@ udp_stack_packet_validate(struct ip_hdr *ip_hdr, u16_t packet_len, u32_t host_ip
 	assert(ip_hdr->version == IPv4);
 	/* we don't support IP options, thus the ihl has to be 5 */
 	assert(ip_hdr->ihl == 5);
-	assert(ntohs(ip_hdr->total_len) == packet_len - ETH_STD_LEN);
+	//assert(ntohs(ip_hdr->total_len) == packet_len - ETH_STD_LEN);
 	/* we don't support IP fragments */
-	assert(ip_hdr->frag_off & 0x0040);
+	assert((ip_hdr->frag_off & 0x2000) == 0);
 	assert(ip_hdr->ttl > 0);
 	/* make sure it's a UDP proto */
 	assert(ip_hdr->proto == UDP_PROTO);
@@ -132,8 +132,11 @@ udp_stack_udp_bind(u32_t ip_addr, u16_t port)
 	/* Hold server's IP and port */
 	u64_t mac;
 	char tmp;
+
+	if (ip_addr == 0) ip_addr = inet_addr("10.10.1.2");
+
 	host_ip = ip_addr;
-	host_port = htons(port);
+	host_port = port;
 	mac = nic_get_port_mac_address(0);
 
 	char *mac_addr = (char *)&mac;
@@ -144,7 +147,8 @@ udp_stack_udp_bind(u32_t ip_addr, u16_t port)
 	nic_mac.addr_bytes[4] = mac_addr[1];
 	nic_mac.addr_bytes[5] = mac_addr[0];
 
-	nic_bind_port(ip_addr, htons(port));
+
+	nic_bind_port(ip_addr, port);
 
 	return 0;
 }

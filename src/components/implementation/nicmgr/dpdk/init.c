@@ -57,7 +57,7 @@ cos_hash_init()
 }
 
 void 
-cos_hash_add(uint16_t tenant_id, struct client_session *session)
+cos_hash_add(uint16_t tenant_id, struct tenant_session_buffer *session)
 {
 	int ret;
 	ret = rte_hash_add_key_data(tenant_hash_tbl, &tenant_id, session);
@@ -75,11 +75,11 @@ debug_print_stats(void)
 	printc("enqueue:%lu, txqneueue:%lu\n", enqueued_rx, dequeued_tx);
 }
 
-struct client_session *
+struct tenant_session_buffer *
 cos_hash_lookup(uint16_t tenant_id)
 {
 	int ret;
-	struct client_session *session;
+	struct tenant_session_buffer *session_buffer;
 
 	/* If DPDK receives this port, it goes to process debug information */
 	if (unlikely(tenant_id == htons(NIC_DEBUG_PORT))) {
@@ -87,11 +87,43 @@ cos_hash_lookup(uint16_t tenant_id)
 		return NULL;
 	}
 
-	ret = rte_hash_lookup_data(tenant_hash_tbl, &tenant_id, (void *)&session);
-	assert(ret >= 0);
+	ret = rte_hash_lookup_data(tenant_hash_tbl, &tenant_id, (void *)&session_buffer);
+	assert(ret != -EINVAL);
+	if (ret == -ENOENT) return NULL;
 
-	return session;
+	return session_buffer;
 }
+
+
+static struct client_session *
+get_tenant_session(uint16_t tenant_id)
+{
+	struct tenant_session_buffer *session_buffer;
+	struct client_session        *receiver = NULL;
+
+	session_buffer = cos_hash_lookup(tenant_id);
+	if (session_buffer == NULL) return NULL;
+
+	ps_lock_take(&session_buffer->lock);
+
+	if (unlikely(session_buffer->bound_sessions == NULL)) goto done;
+	
+	/* fastpath: someone is waiting for a packet */
+	if (likely(session_buffer->wait_stack != NULL)) {
+		receiver = session_buffer->wait_stack;
+		session_buffer->wait_stack = session_buffer->wait_stack->next;
+		receiver->next = NULL;
+		goto done;
+	}
+
+	/* no one is waiting for a packet, choose a session round-robin style */
+	receiver = session_buffer->bound_sessions[session_buffer->next_receiver++];
+	if (session_buffer->next_receiver == session_buffer->num_bound) session_buffer->next_receiver = 0;
+	
+done:
+	ps_lock_release(&session_buffer->lock);
+	return receiver;
+} 
 
 static void
 ext_buf_free_callback_fn(void *addr, void *opaque)
@@ -157,14 +189,13 @@ process_rx_packets(cos_portid_t port_id, char** rx_pkts, uint16_t nb_pkts)
 
 		if (htons(eth->ether_type) == 0x0800) {
 			iph	= (struct ip_hdr *)((char *)eth + sizeof(struct eth_hdr));
-			if (unlikely(iph->proto != UDP_PROTO)) {
-				cos_free_packet(buf.pkt);
-				rx_enqueued_miss++;
-				continue;
-			}
+			// if (unlikely(iph->proto != UDP_PROTO)) {
+			// 	cos_free_packet(buf.pkt);
+			// 	rx_enqueued_miss++;
+			// 	continue;
+			// }
 			port	= (struct tcp_udp_port *)((char *)eth + sizeof(struct eth_hdr) + iph->ihl * 4);
-
-			session = cos_hash_lookup(port->dst_port);
+			session = get_tenant_session(port->dst_port);
 			if (unlikely(session == NULL)) {
 				cos_free_packet(rx_pkts[i]);
 				continue;
@@ -185,6 +216,7 @@ process_rx_packets(cos_portid_t port_id, char** rx_pkts, uint16_t nb_pkts)
 				debug_flag = 0;
 			}
 		} else if (htons(eth->ether_type) == 0x0806) {
+			printc("ARP NOT SUPPORTED\n");
 			assert(0);
 		}
 	}

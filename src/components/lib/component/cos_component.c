@@ -116,6 +116,11 @@ libc_posixsched_initialization_handler()
 {
 }
 
+CWEAKSYMB void
+libc_posixnet_initialization_handler()
+{
+}
+
 /* TODO: Make this a weak symbol (currently doing so makes this fail) */
 void __init_libc(char **envp, char *pn);
 
@@ -320,12 +325,13 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 		pre_syscall_setup();
 		/* libc needs syscall emulation to work */
 		syscall_emulation_setup();
-		/* With all that setup, we can invoke the libc_initialization_handler */
-		libc_initialization_handler();
 		/* init lib posix variants */
 		libc_posixcap_initialization_handler();
 		libc_posixsched_initialization_handler();
+		libc_posixnet_initialization_handler();
 
+		/* With all that setup, we can invoke the libc_initialization_handler */
+		libc_initialization_handler();
 
 		constructors_execute();
 	}

@@ -1,5 +1,5 @@
 [system]
-description = "Simple TCP echo server"
+description = "Rust tests"
 
 [[components]]
 name = "booter"
@@ -38,7 +38,12 @@ implements = [{interface = "netmgr"}]
 constructor = "booter"
 
 [[components]]
-name = "simple_tcp_echo_server"
-img  = "simple_tcp_echo_server.simple_tcp_echo_server"
-deps = [{srv = "sched", interface = "sched"}, {srv = "sched", interface = "init"},{srv = "capmgr", interface = "capmgr_create"}, {srv = "capmgr", interface = "memmgr"}, {srv = "capmgr", interface = "contigmem"}, {srv = "netmgr", interface = "netmgr"}]
+name = "test"
+img  = "tests.posix_socket_test"
+deps = [{srv = "sched", interface = "init"}, {srv = "capmgr", interface = "contigmem"}, {srv = "capmgr", interface = "capmgr_create"},{srv = "sched", interface = "sched"}, {srv = "netmgr", interface = "netmgr"}, {srv = "capmgr", interface = "memmgr"}, {srv = "nicmgr", interface = "nic"}]
 constructor = "booter"
+
+[[address_spaces]]
+name = "net"
+components = ["nicmgr", "sched", "test"]
+

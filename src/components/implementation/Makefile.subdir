@@ -6,7 +6,7 @@ SUBDIRS=$(wildcard */)
 CLIB=libinterfacelib.a # this is the library for all implementations of this interface
 INCLUDES=$(DEPENDENCY_INCPATH) $(CINC)
 
-OBJS=$(patsubst %.c,%.o,$(wildcard *.c)) $(patsubst %.S,%.o,$(wildcard *.S)) $(patsubst %.cc,%.o,$(wildcard *.cc))
+OBJS=$(patsubst %.c,%.o,$(wildcard *.c)) $(patsubst %.S,%.o,$(wildcard *.S)) $(patsubst %.cc,%.o,$(wildcard *.cc) $(wildcard cargo-*.o))
 
 #NOTE: assembly files don't have dependencies generated for them
 SOURCE_DEPENDENCIES=$(OBJS:%.o=%.d)

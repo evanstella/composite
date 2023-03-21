@@ -816,21 +816,6 @@ cos_init(void)
 	printc("Starting the capability manager.\n");
 	assert(atol(args_get("captbl_end")) >= BOOT_CAPTBL_FREE);
 
-	/* Example code to walk through the components in shared address spaces */
-	printc("Components in shared address spaces: ");
-	ret = args_get_entry("addrspc_shared", &comps);
-	assert(!ret);
-	for (cont = args_iter(&comps, &i, &curr) ; cont ; cont = args_iter_next(&i, &curr)) {
-		compid_t id = atoi(args_value(&curr));
-
-		found_shared = 1;
-		printc("%ld ", id);
-	}
-	if (!found_shared) {
-		printc("none");
-	}
-	printc("\n");
-
 	/* Get our house in order. Initialize ourself and our data-structures */
 	cos_meminfo_init(&(ci->mi), BOOT_MEM_KM_BASE, COS_MEM_KERN_PA_SZ, BOOT_CAPTBL_SELF_UNTYPED_PT);
 	cos_defcompinfo_init();

@@ -24,3 +24,16 @@ COS_SERVER_3RET_STUB(shm_bm_objid_t, netmgr_udp_shmem_write)
 {
 	return netmgr_udp_shmem_write(p0, p1, p2, (p3 >> 32), p3);
 }
+
+COS_SERVER_3RET_STUB(int, netmgr_tcp_accept)
+{
+	struct conn_addr addr;
+	int ret;
+
+	ret = netmgr_tcp_accept(&addr);
+
+	*r1 = addr.ip;
+	*r2 = addr.port;
+
+	return ret;
+}

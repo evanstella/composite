@@ -23,6 +23,8 @@ int netmgr_tcp_accept(struct conn_addr *client_addr);
 shm_bm_objid_t netmgr_tcp_shmem_read(u16_t *data_offset, u16_t *data_len);
 int netmgr_tcp_shmem_write(shm_bm_objid_t objid, u16_t data_offset, u16_t data_len);
 
+void netmgr_tcp_connection_transfer_from(thdid_t tid);
+
 int netmgr_udp_bind(u32_t ip_addr, u16_t port);
 
 shm_bm_objid_t netmgr_udp_shmem_read(u16_t *data_offset, u16_t *data_len, u32_t *remote_addr, u16_t *remote_port);
