@@ -258,12 +258,7 @@ netmgr_tcp_shmem_write(shm_bm_objid_t objid, u16_t data_offset, u16_t data_len)
 	data = obj->data + data_offset;
 
 	err_t wr_err = tcp_write(lwip_connections[thd].tp, data, data_len, 0);
-	printc("%d\n", wr_err);
 	assert(wr_err == ERR_OK);
-
-	/* tcp_output() might be needed in the future */
-	// wr_err = tcp_output(lwip_connections[thd].tp);
-	// assert(wr_err == ERR_OK);
 
 	return 0;
 }

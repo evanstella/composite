@@ -322,8 +322,9 @@ cos_futex(int *uaddr, int op, int val,
 			result = cos_futex_wake(futex, val);
 			break;
 		default:
-			printc("Unsupported futex operation");
-			assert(0);
+			printc("Unsupported futex operation: %d\n", op);
+			errno = ENOSYS;
+			return -1;
 	}
 
 	ps_lock_release(&futex_lock);

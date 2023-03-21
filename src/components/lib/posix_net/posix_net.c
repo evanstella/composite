@@ -74,6 +74,26 @@ tcp_socket_write(const char *buf, size_t count)
 	return count;
 }
 
+static void
+tcp_new_thread_setup_fn(int fd)
+{
+	struct cos_posix_file_socket *sock = (struct cos_posix_file_socket *)cos_posix_fd_get(fd);
+	struct sockaddr_in *sockaddr;
+	
+	if (sock == NULL) return;
+
+	if (netshmem_get_shm() == 0) {
+		netshmem_create();
+		netmgr_shmem_map(netshmem_get_shm_id());
+	}
+
+	if (sock->flags & SOCKET_BOUND) {
+		sockaddr = (struct sockaddr_in *)&sock->addr;
+		int ret = nic_bind_port(sockaddr->sin_addr.s_addr, sockaddr->sin_port);
+		printc("ret %d\n", ret);
+	}
+}
+
 static ssize_t
 udp_socket_read(char *buf, size_t count, u32_t *addr, u16_t *port)
 {
@@ -93,6 +113,21 @@ udp_socket_read(char *buf, size_t count, u32_t *addr, u16_t *port)
 	shm_bm_free_net_pkt_buf(rx_obj);
 
 	return data_len;
+}
+
+static ssize_t
+udp_socket_write(const char *buf, size_t count, u32_t addr, u16_t port)
+{
+	shm_bm_objid_t           objid = 0;
+	struct netshmem_pkt_buf *tx_obj;
+
+	tx_obj = shm_bm_alloc_net_pkt_buf(netshmem_get_shm(), &objid);
+	memcpy(netshmem_get_data_buf(tx_obj), buf, count);
+
+	udp_stack_shmem_write(objid, netshmem_get_data_offset(), count, addr, port);
+	shm_bm_free_net_pkt_buf(tx_obj);
+
+	return count;
 }
 
 static void
@@ -131,9 +166,21 @@ cos_socket(int domain, int type, int protocol)
 
 	if (type & SOCK_STREAM) {
 		sock->type = SOCK_STREAM;
+		sock->setup_fn = tcp_new_thread_setup_fn;
+
+		if (netshmem_get_shm() == 0) {
+			netshmem_create();
+			netmgr_shmem_map(netshmem_get_shm_id());
+		}
+
 	} else if (type & SOCK_DGRAM) {
 		sock->type = SOCK_DGRAM;
 		sock->setup_fn = udp_new_thread_setup_fn;
+
+		if (netshmem_get_shm() == 0) {
+			netshmem_create();
+			udp_stack_shmem_map(netshmem_get_shm_id());
+		}
 	} else {
 		return -1;
 	}
@@ -159,15 +206,14 @@ cos_bind(int fd, const struct sockaddr *addr, socklen_t len)
 		case SOCK_STREAM : {
 			struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
 
-			ret = netmgr_tcp_bind(inaddr->sin_addr.s_addr, htons(inaddr->sin_port));
+			ret = netmgr_tcp_bind(inaddr->sin_addr.s_addr, inaddr->sin_port);
 			if (ret != NETMGR_OK) return -1;
 
 			break;
 		}
 		case SOCK_DGRAM : {
 			struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
-
-			ret = udp_stack_udp_bind(inaddr->sin_addr.s_addr, htons(inaddr->sin_port));
+			ret = udp_stack_udp_bind(inaddr->sin_addr.s_addr, inaddr->sin_port);
 			if (ret != 0) return -1;
 
 			break;
@@ -238,7 +284,8 @@ cos_accept(int fd, struct sockaddr *sockaddr_ret, socklen_t *len_ret)
 			conn->domain       = sock->domain;
 			conn->protocol     = sock->protocol;
 			conn->curr_handler = cos_thdid();
-			conn->flags        = SOCKET_CONNECTED;
+			conn->flags        = SOCKET_CONNECTED | SOCKET_BOUND;
+			conn->setup_fn     = tcp_new_thread_setup_fn;
 
 			memcpy(&conn->addr, &sock->addr, sock->addr_len);
 
@@ -289,12 +336,14 @@ cos_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_
 			if (!(sock->flags & SOCKET_BOUND)) return -1;
 
 			ssize_t ret = udp_socket_read(buf, len, &addr, &port);
+
 			if (src_addr && addrlen) {
 				struct sockaddr_in *addr_ret = (struct sockaddr_in *)src_addr;
 				
+				addr_ret->sin_family      = AF_INET;
 				addr_ret->sin_addr.s_addr = addr;
-				addr_ret->sin_port = port;
-				*addrlen = sock->addr_len;
+				addr_ret->sin_port        = port;
+				*addrlen = sizeof(struct sockaddr_in);
 			}
 
 			return ret;
@@ -312,13 +361,27 @@ cos_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sock
 	if (sock == NULL) return 0;
 
 	if (flags != 0) {
-		printc("sendto: flags ignored\n");
+		//printc("sendto: flags ignored\n");
 	}
 
 	switch (sock->type)
 	{
 		case SOCK_STREAM : {
 			return tcp_socket_write(buf, len);
+		}
+		case SOCK_DGRAM : {
+			assert(dest_addr && addrlen);
+
+			struct sockaddr_in *addr_in = (struct sockaddr_in *)dest_addr;
+
+			u32_t addr = (u32_t)addr_in->sin_addr.s_addr;
+			u16_t port = (u16_t)addr_in->sin_port;
+			
+			if (!(sock->flags & SOCKET_BOUND)) return -1;
+
+			ssize_t ret = udp_socket_write(buf, len, addr, port);
+
+			return ret;
 		}
 		default: {
 			return 0;
@@ -344,6 +407,4 @@ libc_posixnet_initialization_handler()
 	libc_syscall_override((cos_syscall_t)(void *)cos_recvfrom,   __NR_recvfrom);
 	libc_syscall_override((cos_syscall_t)(void *)cos_sendto,     __NR_sendto);
 	
-	netshmem_create();
-	udp_stack_shmem_map(netshmem_get_shm_id());
 }

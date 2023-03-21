@@ -31,7 +31,7 @@ struct cos_posix_file_generic {
 	cos_posix_write_fn_t         write;
     cos_posix_read_fn_t          read;
     /* stat, seek, sockoptions ioctls m/unmap */
-    unsigned char        __data[128]; /* non-generic implementations define what goes here */
+    unsigned char                __data[128]; /* non-generic implementations define what goes here */
 };
 
 int                            cos_posix_fd_alloc();

@@ -6,6 +6,7 @@
 #include <time.h>
 #include <poll.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -38,6 +39,16 @@ read_bytes_from_stdin(char *buf, size_t count)
 {
 	assert(0);
 	return 0;
+}
+
+ssize_t
+read_urandom(char *buf, size_t count)
+{
+	for (size_t i = 0; i < count; i++) {
+		buf[i] = (char)(rand() % 256);
+	}
+
+	return count;
 }
 
 ssize_t
@@ -170,6 +181,49 @@ cos_getcwd(char *buf, size_t size)
 	return NULL;
 }
 
+int
+cos_open(const char *path, int flags)
+{
+	if (strncmp(path, "/dev/urandom", sizeof("/dev/urandom")) == 0) {
+		struct cos_posix_file_generic *f; 
+		int fd;
+
+		fd = cos_posix_fd_alloc();
+		if (fd == -1) return -1;
+
+		f = cos_posix_fd_get(fd);
+
+		f->read  = read_urandom;
+		f->write = NULL;
+
+		return fd;
+	}
+
+	return -1;
+}
+
+int
+cos_fcntl(int fd_in, int cmd, int arg)
+{
+	if (cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC) {
+		struct cos_posix_file_generic *f_new, *f_old; 
+		int fd;
+
+		fd = cos_posix_fd_alloc();
+		if (fd == -1 || fd < arg) return -1;
+
+		f_new = cos_posix_fd_get(fd);
+		f_old = cos_posix_fd_get(fd_in);
+		
+		memcpy(f_new, f_old, sizeof(struct cos_posix_file_generic));
+
+		return fd;
+	}
+
+	errno = ENOSYS;
+	return -1;
+}
+
 static int
 console_init(cos_posix_write_fn_t w, cos_posix_read_fn_t r)
 {
@@ -203,6 +257,8 @@ libc_posixcap_initialization_handler()
 	libc_syscall_override((cos_syscall_t)(void*)cos_mmap, __NR_mmap);
 	libc_syscall_override((cos_syscall_t)(void*)cos_poll, __NR_poll);
 	libc_syscall_override((cos_syscall_t)(void*)cos_getcwd, __NR_getcwd);
+	libc_syscall_override((cos_syscall_t)(void*)cos_open, __NR_open);
+	libc_syscall_override((cos_syscall_t)(void*)cos_fcntl, __NR_fcntl);
 
 	/* stdin, stdout, stderr */
 	assert(console_init(NULL, read_bytes_from_stdin) == STDIN_FILENO);

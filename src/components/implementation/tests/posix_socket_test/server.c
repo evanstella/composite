@@ -1,5 +1,3 @@
-#include <cos_types.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -10,6 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <errno.h>
 
 
 void die(const char *errmsg) {
@@ -17,7 +16,7 @@ void die(const char *errmsg) {
     exit(1);
 }
  
-#define NUM_THREAD 5
+#define NUM_THREAD 1
 
 struct thread_arg {
     int id;
@@ -30,20 +29,20 @@ void *thread_fn(void *thread_arg)
     //Get the socket descriptor
     struct thread_arg *args = (struct thread_arg *)thread_arg;
     size_t sz;
-    socklen_t len;
-    char buf[20];
+    char buf[200];
     struct sockaddr_in client;
+    socklen_t len = sizeof client;
+
     
     while(1)
     {
-        sz = recvfrom(sockfd, &buf, 20, 0, &client, &len);
-        printf("Thread %d handling request... message: %s\n", args->id, buf);
-		
-        /* do work... */
-        sleep(2);
+        sz = recvfrom(sockfd, &buf, 200, 0, (struct sockaddr *)&client, &len);
+        //printf("Thread %d handling request... message: %s\n", args->id, buf);
+
+        sendto(sockfd, &buf, sz, 0, (struct sockaddr *)&client, len);
 
 		//clear the message buffer
-		memset(&buf, 0, 20);
+		memset(&buf, 0, 200);
     }
      
          
@@ -80,7 +79,8 @@ int main(int argc , char *argv[])
     }
      
     /* just wait... */
-    while(1);
+    while(1) sleep(200);
+
      
     return 0;
 }
