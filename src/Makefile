@@ -56,7 +56,7 @@ init:
 	$(MAKE) $(MAKEOPTIONS) PLATFORM=$(shell cat $(PLAT_FILE)) -C platform init
 
 update:
-	git submodule update --init --recursive --progress
+	# git submodule update --init --recursive --progress
 
 submod_fastforward:
 	git submodule update --remote --merge
